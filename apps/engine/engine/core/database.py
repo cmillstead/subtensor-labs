@@ -1,5 +1,6 @@
 """Async SQLAlchemy engine and session factory for TimescaleDB."""
 
+import threading
 from collections.abc import AsyncGenerator
 
 from sqlalchemy import text
@@ -18,6 +19,7 @@ log = get_logger(__name__)
 
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
+_init_lock = threading.Lock()
 
 
 class Base(DeclarativeBase):
@@ -25,24 +27,28 @@ class Base(DeclarativeBase):
 
 
 def get_engine() -> AsyncEngine:
-    """Get or create the async SQLAlchemy engine."""
+    """Get or create the async SQLAlchemy engine (thread-safe)."""
     global _engine  # noqa: PLW0603
     if _engine is None:
-        _engine = create_async_engine(
-            settings.database_url,
-            echo=settings.debug,
-            pool_size=10,
-            max_overflow=20,
-            pool_pre_ping=True,
-        )
+        with _init_lock:
+            if _engine is None:
+                _engine = create_async_engine(
+                    settings.database_url,
+                    echo=settings.debug,
+                    pool_size=10,
+                    max_overflow=20,
+                    pool_pre_ping=True,
+                )
     return _engine
 
 
 def get_session_factory() -> async_sessionmaker[AsyncSession]:
-    """Get or create the async session factory."""
+    """Get or create the async session factory (thread-safe)."""
     global _session_factory  # noqa: PLW0603
     if _session_factory is None:
-        _session_factory = async_sessionmaker(get_engine(), expire_on_commit=False)
+        with _init_lock:
+            if _session_factory is None:
+                _session_factory = async_sessionmaker(get_engine(), expire_on_commit=False)
     return _session_factory
 
 

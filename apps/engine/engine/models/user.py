@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from sqlalchemy import DateTime, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from engine.core.database import Base
 
@@ -24,3 +24,13 @@ class User(Base):
         DateTime(timezone=True), nullable=True
     )
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    addresses: Mapped[list["UserAddress"]] = relationship(  # noqa: F821
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    alert_configs: Mapped[list["AlertConfig"]] = relationship(  # noqa: F821
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    saved_screeners: Mapped[list["SavedScreener"]] = relationship(  # noqa: F821
+        back_populates="user", cascade="all, delete-orphan"
+    )

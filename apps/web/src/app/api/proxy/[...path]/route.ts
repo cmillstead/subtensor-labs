@@ -1,20 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ENGINE_URL } from "@/lib/constants";
+import { isAllowed } from "@/lib/proxy-allowlist";
 
-const ENGINE_URL = process.env.ENGINE_URL || "http://localhost:8000";
-
-/** Allowed engine path prefixes — reject anything outside this list. */
-const ALLOWED_PREFIXES = [
-  "/engine/health",
-  "/engine/portfolio",
-  "/engine/screener",
-  "/engine/subnets",
-  "/engine/predictions",
-  "/engine/alerts",
-];
-
-function isAllowed(path: string): boolean {
-  return ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix));
-}
+/** Headers safe to forward to the engine. All others are stripped. */
+const FORWARDED_HEADERS = ["content-type", "accept", "x-request-id"];
 
 async function proxyToEngine(
   request: NextRequest,
@@ -28,8 +17,12 @@ async function proxyToEngine(
   }
 
   const url = `${ENGINE_URL}${enginePath}`;
-  const headers = new Headers(request.headers);
-  headers.delete("host");
+  // Only forward safe headers — strip Cookie, Authorization, etc.
+  const headers = new Headers();
+  for (const name of FORWARDED_HEADERS) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
 
   try {
     const response = await fetch(url, {
@@ -51,34 +44,17 @@ async function proxyToEngine(
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
-) {
-  const { path } = await params;
-  return proxyToEngine(request, `/engine/${path.join("/")}`);
+function makeHandler() {
+  return async (
+    request: NextRequest,
+    { params }: { params: Promise<{ path: string[] }> },
+  ) => {
+    const { path } = await params;
+    return proxyToEngine(request, `/engine/${path.join("/")}`);
+  };
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
-) {
-  const { path } = await params;
-  return proxyToEngine(request, `/engine/${path.join("/")}`);
-}
-
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
-) {
-  const { path } = await params;
-  return proxyToEngine(request, `/engine/${path.join("/")}`);
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
-) {
-  const { path } = await params;
-  return proxyToEngine(request, `/engine/${path.join("/")}`);
-}
+export const GET = makeHandler();
+export const POST = makeHandler();
+export const PUT = makeHandler();
+export const DELETE = makeHandler();

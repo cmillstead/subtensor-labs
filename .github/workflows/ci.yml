@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: uv sync
+      - run: uv sync --frozen
       - run: uv run ruff check engine/
       - run: uv run ruff format --check engine/
       - run: uv run mypy engine/
@@ -63,7 +63,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: uv sync
+      - run: uv sync --frozen
       - run: uv run pytest --cov=engine tests/ -v
         env:
           ENGINE_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/subtensor_labs_test

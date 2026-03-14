@@ -15,7 +15,10 @@ export class EngineClientError extends Error {
 
 /**
  * Typed HTTP client for the Python engine.
- * Used by Next.js API routes to proxy requests.
+ *
+ * Intended for use in Next.js Server Components and server-side code that
+ * needs direct engine access. Browser clients should use the `/api/proxy/`
+ * route instead, which enforces the path allowlist and handles CORS.
  */
 export async function engineFetch<T>(
   path: string,

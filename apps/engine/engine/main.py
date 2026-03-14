@@ -21,7 +21,12 @@ log = get_logger(__name__)
 
 
 class CatchAllMiddleware(BaseHTTPMiddleware):
-    """Catch unhandled exceptions and return sanitized JSON error responses."""
+    """Catch unhandled exceptions and return sanitized JSON error responses.
+
+    Note: BaseHTTPMiddleware buffers the entire response body, which breaks
+    streaming/SSE responses. Convert to pure ASGI middleware when streaming
+    endpoints are added.
+    """
 
     async def dispatch(self, request: Request, call_next: Any) -> JSONResponse | Any:
         try:
@@ -35,7 +40,15 @@ class CatchAllMiddleware(BaseHTTPMiddleware):
                     code=500,
                 )
             )
-            return JSONResponse(status_code=500, content=body.model_dump())
+            # Include CORS header so browsers don't swallow the error as an
+            # opaque CORS failure (CORSMiddleware runs first but its headers
+            # aren't applied to responses generated inside this middleware).
+            origin = request.headers.get("origin", "")
+            cors_headers: dict[str, str] = {}
+            if origin and origin in settings.cors_origins:
+                cors_headers["Access-Control-Allow-Origin"] = origin
+                cors_headers["Access-Control-Allow-Credentials"] = "true"
+            return JSONResponse(status_code=500, content=body.model_dump(), headers=cors_headers)
 
 
 @asynccontextmanager
@@ -65,7 +78,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
-        allow_headers=["*"],
+        allow_headers=["Content-Type", "Accept", "Authorization", "X-Request-ID"],
     )
 
     app.include_router(root_router)

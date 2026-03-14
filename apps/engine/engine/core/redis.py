@@ -1,5 +1,6 @@
 """Async Redis connection and cache helpers."""
 
+import threading
 from typing import cast
 
 from redis.asyncio import Redis
@@ -10,24 +11,27 @@ from engine.core.logging import get_logger
 log = get_logger(__name__)
 
 _redis_client: Redis | None = None
+_redis_lock = threading.Lock()
 
 
 def get_redis() -> Redis:
-    """Get or create the Redis client."""
+    """Get or create the Redis client (thread-safe)."""
     global _redis_client  # noqa: PLW0603
     if _redis_client is None:
-        _redis_client = Redis.from_url(
-            settings.redis_url,
-            decode_responses=True,
-            max_connections=settings.redis_max_connections,
-        )
+        with _redis_lock:
+            if _redis_client is None:
+                _redis_client = Redis.from_url(
+                    settings.redis_url,
+                    decode_responses=True,
+                    max_connections=settings.redis_max_connections,
+                )
     return _redis_client
 
 
 async def check_redis_health() -> bool:
     """Check if Redis is reachable."""
     try:
-        result = await get_redis().ping()  # type: ignore[misc]
+        result = await get_redis().ping()  # type: ignore[misc]  # redis-py async stubs return Awaitable[ResponseT]
         return bool(result)
     except Exception:
         log.warning("redis_health_check_failed", exc_info=True)
