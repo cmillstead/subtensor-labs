@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #09090B;
+  --color-surface: #131316;
+  --color-elevated: #1C1C21;
+  --color-border: #27272A;
+  --color-border-accent: #3F3F46;
+  --color-primary: #8B5CF6;
+  --color-primary-hover: #A78BFA;
+  --color-primary-muted: #8B5CF620;
+  --color-text-primary: #FAFAFA;
+  --color-text-secondary: #A1A1AA;
+  --color-text-muted: #71717A;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #F43F5E;
+
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "Cascadia Code", "Fira Code", monospace;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Skip link — raw CSS required for :focus pseudo-class toggle */
+.skip-link {
+  @apply absolute -top-10 left-0 z-50 bg-primary px-4 py-2 text-text-primary transition-[top] duration-200;
+}
+
+.skip-link:focus {
+  @apply top-0;
+}
