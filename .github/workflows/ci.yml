@@ -64,6 +64,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --frozen
+      - name: Run Alembic migrations
+        run: uv run alembic upgrade head
+        env:
+          ENGINE_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/subtensor_labs_test
+          ENGINE_DEBUG: "true"
       - run: uv run pytest --cov=engine tests/ -v
         env:
           ENGINE_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/subtensor_labs_test

@@ -33,7 +33,7 @@ class AlertConfig(Base):
         nullable=False,
     )
 
-    user: Mapped["User"] = relationship(back_populates="alert_configs")  # noqa: F821
-    history: Mapped[list["AlertHistory"]] = relationship(  # noqa: F821
+    user: Mapped["User"] = relationship(back_populates="alert_configs")  # type: ignore[name-defined]  # noqa: F821
+    history: Mapped[list["AlertHistory"]] = relationship(  # type: ignore[name-defined]  # noqa: F821
         back_populates="alert_config", cascade="all, delete-orphan"
     )

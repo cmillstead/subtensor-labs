@@ -25,4 +25,4 @@ class UserAddress(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    user: Mapped["User"] = relationship(back_populates="addresses")  # noqa: F821
+    user: Mapped["User"] = relationship(back_populates="addresses")  # type: ignore[name-defined]  # noqa: F821

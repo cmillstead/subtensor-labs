@@ -31,12 +31,12 @@ class User(Base):
         nullable=False,
     )
 
-    addresses: Mapped[list["UserAddress"]] = relationship(  # noqa: F821
+    addresses: Mapped[list["UserAddress"]] = relationship(  # type: ignore[name-defined]  # noqa: F821
         back_populates="user", cascade="all, delete-orphan"
     )
-    alert_configs: Mapped[list["AlertConfig"]] = relationship(  # noqa: F821
+    alert_configs: Mapped[list["AlertConfig"]] = relationship(  # type: ignore[name-defined]  # noqa: F821
         back_populates="user", cascade="all, delete-orphan"
     )
-    saved_screeners: Mapped[list["SavedScreener"]] = relationship(  # noqa: F821
+    saved_screeners: Mapped[list["SavedScreener"]] = relationship(  # type: ignore[name-defined]  # noqa: F821
         back_populates="user", cascade="all, delete-orphan"
     )

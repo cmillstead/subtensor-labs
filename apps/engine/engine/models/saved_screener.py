@@ -28,4 +28,4 @@ class SavedScreener(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    user: Mapped["User"] = relationship(back_populates="saved_screeners")  # noqa: F821
+    user: Mapped["User"] = relationship(back_populates="saved_screeners")  # type: ignore[name-defined]  # noqa: F821
