@@ -23,9 +23,7 @@ log = get_logger(__name__)
 class CatchAllMiddleware(BaseHTTPMiddleware):
     """Catch unhandled exceptions and return sanitized JSON error responses."""
 
-    async def dispatch(
-        self, request: Request, call_next: Any
-    ) -> JSONResponse | Any:
+    async def dispatch(self, request: Request, call_next: Any) -> JSONResponse | Any:
         try:
             return await call_next(request)
         except Exception as exc:

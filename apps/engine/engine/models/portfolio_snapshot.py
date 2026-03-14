@@ -20,6 +20,4 @@ class PortfolioSnapshot(Base):
     total_value_tao: Mapped[float] = mapped_column(Float, nullable=False)
     per_subnet_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
-    __table_args__ = (
-        Index("ix_portfolio_snapshots_user_id_time", "user_id", time.desc()),
-    )
+    __table_args__ = (Index("ix_portfolio_snapshots_user_id_time", "user_id", time.desc()),)

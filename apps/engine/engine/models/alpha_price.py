@@ -20,6 +20,4 @@ class AlphaPrice(Base):
     alpha_reserve: Mapped[float] = mapped_column(Float, nullable=False)
     volume_24h: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    __table_args__ = (
-        Index("ix_alpha_prices_netuid_time", "netuid", time.desc()),
-    )
+    __table_args__ = (Index("ix_alpha_prices_netuid_time", "netuid", time.desc()),)

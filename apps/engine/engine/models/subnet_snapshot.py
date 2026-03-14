@@ -26,6 +26,4 @@ class SubnetSnapshot(Base):
     fill_rate: Mapped[float] = mapped_column(Float, nullable=False)
     owner_take_rate: Mapped[float] = mapped_column(Float, nullable=False)
 
-    __table_args__ = (
-        Index("ix_subnet_snapshots_netuid_time", "netuid", time.desc()),
-    )
+    __table_args__ = (Index("ix_subnet_snapshots_netuid_time", "netuid", time.desc()),)

@@ -20,6 +20,4 @@ class EmissionRecord(Base):
     net_tao_inflow: Mapped[float] = mapped_column(Float, nullable=False)
     cumulative_stake: Mapped[float] = mapped_column(Float, nullable=False)
 
-    __table_args__ = (
-        Index("ix_emission_records_netuid_time", "netuid", time.desc()),
-    )
+    __table_args__ = (Index("ix_emission_records_netuid_time", "netuid", time.desc()),)
