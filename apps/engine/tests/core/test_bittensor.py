@@ -95,6 +95,33 @@ class TestGetActiveSubnetNetuids:
             mock_thread.assert_called_once()
 
 
+class TestGetSubnetHyperparams:
+    @pytest.mark.asyncio
+    async def test_calls_get_subnet_hyperparameters_in_thread(self) -> None:
+        mock_hyperparams = MagicMock()
+        mock_sub = MagicMock()
+        mock_sub.get_subnet_hyperparameters.return_value = mock_hyperparams
+        bittensor._subtensor = mock_sub
+
+        result = await bittensor.get_subnet_hyperparams(netuid=1)
+
+        mock_sub.get_subnet_hyperparameters.assert_called_once_with(netuid=1)
+        assert result is mock_hyperparams
+
+    @pytest.mark.asyncio
+    async def test_runs_in_thread_not_blocking(self) -> None:
+        """Verify SDK call is wrapped in asyncio.to_thread."""
+        mock_sub = MagicMock()
+        mock_sub.get_subnet_hyperparameters.return_value = MagicMock()
+        bittensor._subtensor = mock_sub
+
+        with patch(
+            "engine.core.bittensor.asyncio.to_thread", wraps=asyncio.to_thread
+        ) as mock_thread:
+            await bittensor.get_subnet_hyperparams(netuid=5)
+            mock_thread.assert_called_once()
+
+
 class TestDisposeSubtensor:
     @pytest.mark.asyncio
     async def test_closes_subtensor(self) -> None:

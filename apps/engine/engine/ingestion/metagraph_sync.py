@@ -14,7 +14,7 @@ from engine.core.bittensor import get_active_subnet_netuids, sync_subnet_metagra
 from engine.core.config import settings
 from engine.core.database import get_session_factory
 from engine.core.logging import get_logger
-from engine.core.redis import cache_set
+from engine.core.redis import cache_get, cache_set
 from engine.models.ingestion_cursor import IngestionCursor
 from engine.models.metagraph_entry import MetagraphEntry
 from engine.models.subnet_snapshot import SubnetSnapshot
@@ -25,8 +25,17 @@ log = get_logger(__name__)
 _SUBNET_SYNC_TIMEOUT_S = 30
 
 
-def _extract_subnet_snapshot(netuid: int, metagraph: Any, now: datetime) -> dict[str, Any]:
-    """Extract subnet-level metrics from metagraph into a SubnetSnapshot dict."""
+def _extract_subnet_snapshot(
+    netuid: int,
+    metagraph: Any,
+    now: datetime,
+    price_data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Extract subnet-level metrics from metagraph into a SubnetSnapshot dict.
+
+    If price_data is provided (from Redis price cache), populates price-related
+    fields. Otherwise defaults to 0.0.
+    """
     active_list = (
         metagraph.active.tolist() if hasattr(metagraph.active, "tolist") else list(metagraph.active)
     )
@@ -38,19 +47,29 @@ def _extract_subnet_snapshot(netuid: int, metagraph: Any, now: datetime) -> dict
     # Validators: neurons with stake > 0 (heuristic)
     validator_count = sum(1 for s in stake_list if s > 0)
 
+    alpha_price = 0.0
+    alpha_market_cap = 0.0
+    tao_reserves = 0.0
+    alpha_reserves = 0.0
+    if price_data:
+        alpha_price = float(price_data.get("price_tao", 0.0))
+        alpha_market_cap = float(price_data.get("alpha_market_cap", 0.0))
+        tao_reserves = float(price_data.get("tao_reserve", 0.0))
+        alpha_reserves = float(price_data.get("alpha_reserve", 0.0))
+
     return {
         "time": now,
         "netuid": netuid,
         "miner_count": miner_count,
         "validator_count": validator_count,
-        "emission_share": 0.0,  # Story 1.4 fills via chain query
-        "registration_cost": 0.0,  # Story 1.4 fills via chain query
-        "alpha_price": 0.0,  # Story 1.4 fills via AMM reserves
-        "alpha_market_cap": 0.0,  # Story 1.4 fills
-        "tao_reserves": 0.0,  # Story 1.4 fills
-        "alpha_reserves": 0.0,  # Story 1.4 fills
-        "fill_rate": 0.0,  # Story 1.4 fills
-        "owner_take_rate": 0.0,  # Story 1.4 fills
+        "emission_share": 0.0,
+        "registration_cost": 0.0,
+        "alpha_price": alpha_price,
+        "alpha_market_cap": alpha_market_cap,
+        "tao_reserves": tao_reserves,
+        "alpha_reserves": alpha_reserves,
+        "fill_rate": 0.0,
+        "owner_take_rate": 0.0,
     }
 
 
@@ -139,8 +158,17 @@ async def sync_single_subnet(netuid: int, session: AsyncSession) -> None:
         timeout=_SUBNET_SYNC_TIMEOUT_S,
     )
 
+    # Read price data from cache (populated by price_tracker)
+    price_data: dict[str, Any] | None = None
+    try:
+        cached_price = await cache_get(f"price:{netuid}")
+        if cached_price:
+            price_data = json.loads(cached_price)
+    except Exception:
+        log.debug("price_cache_read_failed", netuid=netuid, worker="metagraph_sync")
+
     # Write SubnetSnapshot
-    snapshot = _extract_subnet_snapshot(netuid, metagraph, now)
+    snapshot = _extract_subnet_snapshot(netuid, metagraph, now, price_data=price_data)
     await session.execute(insert(SubnetSnapshot).values(snapshot))
 
     # Bulk write MetagraphEntry rows

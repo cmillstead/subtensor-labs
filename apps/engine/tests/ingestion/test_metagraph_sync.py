@@ -43,7 +43,31 @@ class TestExtractSubnetSnapshot:
         assert result["time"] == now
         assert result["miner_count"] == 2  # 2 active
         assert result["validator_count"] == 2  # 2 with stake > 0
-        # Story 1.4 fields default to 0.0
+        # Without price_data, defaults to 0.0
+        assert result["alpha_price"] == 0.0
+        assert result["tao_reserves"] == 0.0
+
+    def test_populates_price_from_cache(self) -> None:
+        mg = _make_mock_metagraph()
+        now = datetime.now(UTC)
+        price_data = {
+            "price_tao": 2.5,
+            "alpha_market_cap": 1250.0,
+            "tao_reserve": 500.0,
+            "alpha_reserve": 200.0,
+        }
+        result = _extract_subnet_snapshot(1, mg, now, price_data=price_data)
+
+        assert result["alpha_price"] == 2.5
+        assert result["alpha_market_cap"] == 1250.0
+        assert result["tao_reserves"] == 500.0
+        assert result["alpha_reserves"] == 200.0
+
+    def test_defaults_to_zero_on_empty_price_data(self) -> None:
+        mg = _make_mock_metagraph()
+        now = datetime.now(UTC)
+        result = _extract_subnet_snapshot(1, mg, now, price_data=None)
+
         assert result["alpha_price"] == 0.0
         assert result["tao_reserves"] == 0.0
 
