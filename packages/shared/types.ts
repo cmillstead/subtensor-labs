@@ -58,6 +58,8 @@ export interface PortfolioResult {
   positions: SubnetPosition[];
   addresses: string[];
   last_updated: string;
+  change_24h_pct: number | null;
+  change_7d_pct: number | null;
 }
 
 /** Valid sort fields for screener queries */

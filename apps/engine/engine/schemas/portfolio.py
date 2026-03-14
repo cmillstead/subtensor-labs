@@ -48,6 +48,8 @@ class PortfolioResponseSchema(BaseSchema):
     subnets_exposed: int
     coldkeys_resolved: int
     last_updated: str
+    change_24h_pct: float | None = None
+    change_7d_pct: float | None = None
 
 
 class PortfolioRequestSchema(BaseSchema):
