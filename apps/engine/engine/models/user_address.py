@@ -6,16 +6,19 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from engine.core.database import Base
+from engine.core.encryption import EncryptedString
 
 
 class UserAddress(Base):
-    """User-linked coldkey address (encrypted at rest)."""
+    """User-linked coldkey address (encrypted at rest via AES-256-GCM)."""
 
     __tablename__ = "user_addresses"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    coldkey_address: Mapped[str] = mapped_column(String(512), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    coldkey_address: Mapped[str] = mapped_column(EncryptedString, nullable=False)
     label: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_watch_only: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(

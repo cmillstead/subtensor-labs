@@ -4,6 +4,7 @@ from engine.models.alert_config import AlertConfig
 from engine.models.alert_history import AlertHistory
 from engine.models.alpha_price import AlphaPrice
 from engine.models.emission_record import EmissionRecord
+from engine.models.ingestion_cursor import IngestionCursor
 from engine.models.metagraph_entry import MetagraphEntry
 from engine.models.portfolio_snapshot import PortfolioSnapshot
 from engine.models.saved_screener import SavedScreener
@@ -16,6 +17,7 @@ __all__ = [
     "AlertHistory",
     "AlphaPrice",
     "EmissionRecord",
+    "IngestionCursor",
     "MetagraphEntry",
     "PortfolioSnapshot",
     "SavedScreener",
