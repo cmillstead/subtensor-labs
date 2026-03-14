@@ -16,7 +16,9 @@ class AlertHistory(Base):
     __tablename__ = "alert_history"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    alert_config_id: Mapped[int] = mapped_column(ForeignKey("alert_configs.id"), nullable=False)
+    alert_config_id: Mapped[int] = mapped_column(
+        ForeignKey("alert_configs.id", ondelete="CASCADE"), index=True, nullable=False
+    )
     triggered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
