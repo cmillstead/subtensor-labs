@@ -37,7 +37,12 @@ class Settings(BaseSettings):
 
     # Taostats
     taostats_api_url: str = "https://api.taostats.io"
+    taostats_api_key: str = ""
     taostats_backfill_hour_utc: int = 3
+    taostats_backfill_workers: int = 2
+    taostats_request_timeout_seconds: int = 30
+    taostats_backfill_batch_size: int = 200
+    taostats_rate_limit_max_retries: int = 5
 
     # Security
     address_encryption_key: str = ""
@@ -55,6 +60,11 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "ENGINE_ADDRESS_ENCRYPTION_KEY must be set in production. "
                     "Set ENGINE_DEBUG=true for local development without encryption."
+                )
+            if not self.taostats_api_key:
+                raise ValueError(
+                    "ENGINE_TAOSTATS_API_KEY must be set in production. "
+                    "Set ENGINE_DEBUG=true for local development without Taostats backfill."
                 )
             if "*" in self.cors_origins:
                 raise ValueError(

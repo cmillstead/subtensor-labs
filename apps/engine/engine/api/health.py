@@ -36,6 +36,14 @@ class PriceSyncStatus(BaseSchema):
     price_sync_healthy: bool
 
 
+class BackfillStatus(BaseSchema):
+    last_backfill_at: str | None
+    subnets_backfilled: int | None
+    subnets_failed: int | None
+    total_records_written: int | None
+    backfill_healthy: bool
+
+
 class HealthData(BaseSchema):
     status: str
     engine: str
@@ -43,6 +51,7 @@ class HealthData(BaseSchema):
     redis: str
     sync: SyncStatus
     price_sync: PriceSyncStatus
+    backfill: BackfillStatus
 
 
 class HealthMeta(BaseSchema):
@@ -190,6 +199,49 @@ async def _get_sync_status() -> SyncStatus:
         )
 
 
+async def _get_backfill_status() -> BackfillStatus:
+    """Query IngestionCursor for taostats_backfill status."""
+    try:
+        factory = get_session_factory()
+        async with factory() as session:
+            result = await session.execute(
+                select(IngestionCursor).where(IngestionCursor.source == "taostats_backfill")
+            )
+            cursor = result.scalar_one_or_none()
+
+            if cursor is None:
+                return BackfillStatus(
+                    last_backfill_at=None,
+                    subnets_backfilled=None,
+                    subnets_failed=None,
+                    total_records_written=None,
+                    backfill_healthy=True,  # No backfill yet is OK — it runs daily
+                )
+
+            metadata = cursor.metadata_json or {}
+            # Backfill is healthy if it has run at least once and didn't fail all subnets
+            subnets_backfilled = metadata.get("subnets_backfilled", 0)
+            subnets_failed = metadata.get("subnets_failed", 0)
+            healthy = subnets_backfilled > 0 or subnets_failed == 0
+
+            return BackfillStatus(
+                last_backfill_at=cursor.last_processed_at.isoformat(),
+                subnets_backfilled=subnets_backfilled,
+                subnets_failed=subnets_failed,
+                total_records_written=metadata.get("total_records_written"),
+                backfill_healthy=healthy,
+            )
+    except Exception:
+        log.warning("backfill_status_query_failed", exc_info=True)
+        return BackfillStatus(
+            last_backfill_at=None,
+            subnets_backfilled=None,
+            subnets_failed=None,
+            total_records_written=None,
+            backfill_healthy=True,  # Don't degrade health for backfill query failures
+        )
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health_check() -> JSONResponse:
     """Return engine health status including database, Redis, and sync status."""
@@ -197,6 +249,7 @@ async def health_check() -> JSONResponse:
     redis_healthy = await check_redis_health()
     sync_status = await _get_sync_status()
     price_sync_status = await _get_price_sync_status()
+    backfill_status = await _get_backfill_status()
 
     is_healthy = db_healthy and redis_healthy
     # Persistently stale sync (> 10 min) degrades overall health
@@ -223,6 +276,7 @@ async def health_check() -> JSONResponse:
             redis="connected" if redis_healthy else "disconnected",
             sync=sync_status,
             price_sync=price_sync_status,
+            backfill=backfill_status,
         ),
         meta=HealthMeta(
             service="subtensor-labs-engine",
