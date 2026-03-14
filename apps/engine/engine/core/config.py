@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     subtensor_endpoint: str = ""
     metagraph_sync_interval_seconds: int = 120
     metagraph_sync_workers: int = 8
+    price_sync_interval_seconds: int = 120
+    price_sync_workers: int = 8
+    price_sync_timeout_seconds: int = 30
 
     # Cache TTLs (seconds) — defaults synchronized with packages/shared/constants.ts CACHE_TTL
     cache_ttl_metagraph: int = 180

@@ -28,12 +28,21 @@ class SyncStatus(BaseSchema):
     sync_healthy: bool
 
 
+class PriceSyncStatus(BaseSchema):
+    last_price_sync_at: str | None
+    subnets_priced: int | None
+    subnets_price_failed: int | None
+    subnets_price_stale: list[int]
+    price_sync_healthy: bool
+
+
 class HealthData(BaseSchema):
     status: str
     engine: str
     database: str
     redis: str
     sync: SyncStatus
+    price_sync: PriceSyncStatus
 
 
 class HealthMeta(BaseSchema):
@@ -71,6 +80,72 @@ async def _get_stale_subnets() -> list[int]:
     except Exception:
         log.warning("stale_subnets_scan_failed", exc_info=True)
         return []
+
+
+async def _get_stale_price_subnets() -> list[int]:
+    """Scan Redis for per-subnet price sync timestamps and return stale netuids."""
+    try:
+        redis = get_redis()
+        keys: list[str] = []
+        async for key in redis.scan_iter(match="price_sync_ts:*"):
+            keys.append(str(key))
+
+        now = datetime.now(UTC)
+        stale: list[int] = []
+        for key in keys:
+            netuid_str = key.split(":")[-1]
+            val = await redis.get(key)
+            if val is None:
+                continue
+            last_sync = datetime.fromisoformat(str(val))
+            if (now - last_sync).total_seconds() > _STALE_THRESHOLD_S:
+                stale.append(int(netuid_str))
+        return sorted(stale)
+    except Exception:
+        log.warning("stale_price_subnets_scan_failed", exc_info=True)
+        return []
+
+
+async def _get_price_sync_status() -> PriceSyncStatus:
+    """Query IngestionCursor for price_sync status."""
+    try:
+        factory = get_session_factory()
+        async with factory() as session:
+            result = await session.execute(
+                select(IngestionCursor).where(IngestionCursor.source == "price_sync")
+            )
+            cursor = result.scalar_one_or_none()
+
+            if cursor is None:
+                return PriceSyncStatus(
+                    last_price_sync_at=None,
+                    subnets_priced=None,
+                    subnets_price_failed=None,
+                    subnets_price_stale=[],
+                    price_sync_healthy=False,
+                )
+
+            now = datetime.now(UTC)
+            age_s = (now - cursor.last_processed_at).total_seconds()
+            metadata = cursor.metadata_json or {}
+            stale_subnets = await _get_stale_price_subnets()
+
+            return PriceSyncStatus(
+                last_price_sync_at=cursor.last_processed_at.isoformat(),
+                subnets_priced=metadata.get("subnets_priced"),
+                subnets_price_failed=metadata.get("subnets_failed"),
+                subnets_price_stale=stale_subnets,
+                price_sync_healthy=age_s < _STALE_THRESHOLD_S,
+            )
+    except Exception:
+        log.warning("price_sync_status_query_failed", exc_info=True)
+        return PriceSyncStatus(
+            last_price_sync_at=None,
+            subnets_priced=None,
+            subnets_price_failed=None,
+            subnets_price_stale=[],
+            price_sync_healthy=False,
+        )
 
 
 async def _get_sync_status() -> SyncStatus:
@@ -121,6 +196,7 @@ async def health_check() -> JSONResponse:
     db_healthy = await check_db_health()
     redis_healthy = await check_redis_health()
     sync_status = await _get_sync_status()
+    price_sync_status = await _get_price_sync_status()
 
     is_healthy = db_healthy and redis_healthy
     # Persistently stale sync (> 10 min) degrades overall health
@@ -130,7 +206,14 @@ async def health_check() -> JSONResponse:
         age_s = (datetime.now(UTC) - last_sync).total_seconds()
         sync_critically_stale = age_s > _CRITICAL_STALE_THRESHOLD_S
 
-    status = "healthy" if is_healthy and not sync_critically_stale else "degraded"
+    price_sync_critically_stale = False
+    if price_sync_status.last_price_sync_at is not None:
+        last_price_sync = datetime.fromisoformat(price_sync_status.last_price_sync_at)
+        price_age_s = (datetime.now(UTC) - last_price_sync).total_seconds()
+        price_sync_critically_stale = price_age_s > _CRITICAL_STALE_THRESHOLD_S
+
+    all_healthy = is_healthy and not sync_critically_stale and not price_sync_critically_stale
+    status = "healthy" if all_healthy else "degraded"
 
     body = HealthResponse(
         data=HealthData(
@@ -139,6 +222,7 @@ async def health_check() -> JSONResponse:
             database="connected" if db_healthy else "disconnected",
             redis="connected" if redis_healthy else "disconnected",
             sync=sync_status,
+            price_sync=price_sync_status,
         ),
         meta=HealthMeta(
             service="subtensor-labs-engine",
@@ -146,6 +230,6 @@ async def health_check() -> JSONResponse:
         ),
     )
     return JSONResponse(
-        status_code=200 if (is_healthy and not sync_critically_stale) else 503,
+        status_code=200 if all_healthy else 503,
         content=body.model_dump(),
     )

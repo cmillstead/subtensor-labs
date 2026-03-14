@@ -74,6 +74,20 @@ async def get_active_subnet_netuids() -> list[int]:
     return await asyncio.to_thread(_get_netuids)
 
 
+async def get_subnet_hyperparams(netuid: int) -> Any:
+    """Fetch subnet hyperparameters including AMM pool reserves.
+
+    Wraps the synchronous SDK call in asyncio.to_thread().
+    Returns the SubnetHyperparams object (or equivalent) for the given subnet.
+    """
+    subtensor = get_subtensor()
+
+    def _get_hyperparams() -> Any:
+        return subtensor.get_subnet_hyperparameters(netuid=netuid)
+
+    return await asyncio.to_thread(_get_hyperparams)
+
+
 async def dispose_subtensor() -> None:
     """Clean up the subtensor connection on shutdown."""
     global _subtensor  # noqa: PLW0603
