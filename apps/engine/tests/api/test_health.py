@@ -1,17 +1,48 @@
 """Tests for the health endpoint."""
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
 
+from engine.api.health import SyncStatus
+
+
+def _mock_sync_status(
+    last_sync_at: datetime | None = None,
+    subnets_synced: int | None = None,
+    subnets_failed: int | None = None,
+    subnets_stale: list[int] | None = None,
+    sync_healthy: bool = True,
+) -> SyncStatus:
+    return SyncStatus(
+        last_sync_completed_at=last_sync_at.isoformat() if last_sync_at else None,
+        subnets_synced=subnets_synced,
+        subnets_failed=subnets_failed,
+        subnets_stale=subnets_stale or [],
+        sync_healthy=sync_healthy,
+    )
+
+
+@pytest.fixture
+def _fresh_sync() -> SyncStatus:
+    return _mock_sync_status(
+        last_sync_at=datetime.now(UTC),
+        subnets_synced=10,
+        subnets_failed=0,
+    )
+
 
 @pytest.mark.asyncio
-async def test_health_endpoint_healthy(client: AsyncClient) -> None:
+async def test_health_endpoint_healthy(client: AsyncClient, _fresh_sync: SyncStatus) -> None:
     """Health endpoint returns 200 with healthy status when all services are up."""
     with (
         patch("engine.api.health.check_db_health", new_callable=AsyncMock, return_value=True),
         patch("engine.api.health.check_redis_health", new_callable=AsyncMock, return_value=True),
+        patch(
+            "engine.api.health._get_sync_status", new_callable=AsyncMock, return_value=_fresh_sync
+        ),
     ):
         response = await client.get("/engine/health")
 
@@ -21,16 +52,20 @@ async def test_health_endpoint_healthy(client: AsyncClient) -> None:
     assert data["data"]["engine"] == "running"
     assert data["data"]["database"] == "connected"
     assert data["data"]["redis"] == "connected"
+    assert data["data"]["sync"]["sync_healthy"] is True
     assert data["meta"]["service"] == "subtensor-labs-engine"
     assert data["meta"]["version"] == "0.1.0"
 
 
 @pytest.mark.asyncio
-async def test_health_endpoint_degraded_no_db(client: AsyncClient) -> None:
+async def test_health_endpoint_degraded_no_db(client: AsyncClient, _fresh_sync: SyncStatus) -> None:
     """Health endpoint returns 503 with degraded status when database is down."""
     with (
         patch("engine.api.health.check_db_health", new_callable=AsyncMock, return_value=False),
         patch("engine.api.health.check_redis_health", new_callable=AsyncMock, return_value=True),
+        patch(
+            "engine.api.health._get_sync_status", new_callable=AsyncMock, return_value=_fresh_sync
+        ),
     ):
         response = await client.get("/engine/health")
 
@@ -42,11 +77,16 @@ async def test_health_endpoint_degraded_no_db(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_health_endpoint_degraded_no_redis(client: AsyncClient) -> None:
+async def test_health_endpoint_degraded_no_redis(
+    client: AsyncClient, _fresh_sync: SyncStatus
+) -> None:
     """Health endpoint returns 503 with degraded status when Redis is down."""
     with (
         patch("engine.api.health.check_db_health", new_callable=AsyncMock, return_value=True),
         patch("engine.api.health.check_redis_health", new_callable=AsyncMock, return_value=False),
+        patch(
+            "engine.api.health._get_sync_status", new_callable=AsyncMock, return_value=_fresh_sync
+        ),
     ):
         response = await client.get("/engine/health")
 
@@ -58,11 +98,16 @@ async def test_health_endpoint_degraded_no_redis(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_health_endpoint_degraded_both_down(client: AsyncClient) -> None:
+async def test_health_endpoint_degraded_both_down(
+    client: AsyncClient, _fresh_sync: SyncStatus
+) -> None:
     """Health endpoint returns 503 with degraded status when both services are down."""
     with (
         patch("engine.api.health.check_db_health", new_callable=AsyncMock, return_value=False),
         patch("engine.api.health.check_redis_health", new_callable=AsyncMock, return_value=False),
+        patch(
+            "engine.api.health._get_sync_status", new_callable=AsyncMock, return_value=_fresh_sync
+        ),
     ):
         response = await client.get("/engine/health")
 
@@ -74,16 +119,98 @@ async def test_health_endpoint_degraded_both_down(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_health_response_matches_schema(client: AsyncClient) -> None:
+async def test_health_response_matches_schema(client: AsyncClient, _fresh_sync: SyncStatus) -> None:
     """Health endpoint response matches the documented envelope format."""
     with (
         patch("engine.api.health.check_db_health", new_callable=AsyncMock, return_value=True),
         patch("engine.api.health.check_redis_health", new_callable=AsyncMock, return_value=True),
+        patch(
+            "engine.api.health._get_sync_status", new_callable=AsyncMock, return_value=_fresh_sync
+        ),
     ):
         response = await client.get("/engine/health")
 
     data = response.json()
     assert "data" in data
     assert "meta" in data
-    assert set(data["data"].keys()) == {"status", "engine", "database", "redis"}
+    assert set(data["data"].keys()) == {"status", "engine", "database", "redis", "sync"}
     assert set(data["meta"].keys()) == {"service", "version"}
+
+
+@pytest.mark.asyncio
+async def test_health_sync_status_included(client: AsyncClient) -> None:
+    """Health response includes sync status details."""
+    now = datetime.now(UTC)
+    sync = _mock_sync_status(last_sync_at=now, subnets_synced=5, subnets_failed=1)
+    with (
+        patch("engine.api.health.check_db_health", new_callable=AsyncMock, return_value=True),
+        patch("engine.api.health.check_redis_health", new_callable=AsyncMock, return_value=True),
+        patch("engine.api.health._get_sync_status", new_callable=AsyncMock, return_value=sync),
+    ):
+        response = await client.get("/engine/health")
+
+    data = response.json()
+    sync_data = data["data"]["sync"]
+    assert sync_data["last_sync_completed_at"] == now.isoformat()
+    assert sync_data["subnets_synced"] == 5
+    assert sync_data["subnets_failed"] == 1
+    assert sync_data["subnets_stale"] == []
+    assert sync_data["sync_healthy"] is True
+
+
+@pytest.mark.asyncio
+async def test_health_sync_never_ran(client: AsyncClient) -> None:
+    """Health shows sync_healthy=False when sync has never run."""
+    sync = _mock_sync_status(sync_healthy=False)
+    with (
+        patch("engine.api.health.check_db_health", new_callable=AsyncMock, return_value=True),
+        patch("engine.api.health.check_redis_health", new_callable=AsyncMock, return_value=True),
+        patch("engine.api.health._get_sync_status", new_callable=AsyncMock, return_value=sync),
+    ):
+        response = await client.get("/engine/health")
+
+    data = response.json()
+    assert data["data"]["sync"]["last_sync_completed_at"] is None
+    assert data["data"]["sync"]["sync_healthy"] is False
+    # Still 200 because DB and Redis are healthy and no stale timestamp
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_health_sync_critically_stale(client: AsyncClient) -> None:
+    """Health returns 503 when sync is critically stale (> 10 min)."""
+    stale_time = datetime.now(UTC) - timedelta(minutes=15)
+    sync = _mock_sync_status(
+        last_sync_at=stale_time, subnets_synced=10, subnets_failed=0, sync_healthy=False
+    )
+    with (
+        patch("engine.api.health.check_db_health", new_callable=AsyncMock, return_value=True),
+        patch("engine.api.health.check_redis_health", new_callable=AsyncMock, return_value=True),
+        patch("engine.api.health._get_sync_status", new_callable=AsyncMock, return_value=sync),
+    ):
+        response = await client.get("/engine/health")
+
+    assert response.status_code == 503
+    data = response.json()
+    assert data["data"]["status"] == "degraded"
+
+
+@pytest.mark.asyncio
+async def test_health_reports_stale_subnets(client: AsyncClient) -> None:
+    """Health response includes stale subnet netuids."""
+    now = datetime.now(UTC)
+    sync = _mock_sync_status(
+        last_sync_at=now,
+        subnets_synced=10,
+        subnets_failed=0,
+        subnets_stale=[3, 19],
+    )
+    with (
+        patch("engine.api.health.check_db_health", new_callable=AsyncMock, return_value=True),
+        patch("engine.api.health.check_redis_health", new_callable=AsyncMock, return_value=True),
+        patch("engine.api.health._get_sync_status", new_callable=AsyncMock, return_value=sync),
+    ):
+        response = await client.get("/engine/health")
+
+    data = response.json()
+    assert data["data"]["sync"]["subnets_stale"] == [3, 19]

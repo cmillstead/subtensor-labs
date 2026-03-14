@@ -95,8 +95,13 @@ class TestStandardTables:
         )
         columns = {row[0] for row in result.fetchall()}
         expected = {
-            "id", "email", "password_hash", "created_at",
-            "premium_status", "premium_expires_at", "stripe_customer_id",
+            "id",
+            "email",
+            "password_hash",
+            "created_at",
+            "premium_status",
+            "premium_expires_at",
+            "stripe_customer_id",
             "updated_at",
         }
         assert expected.issubset(columns), f"Missing columns: {expected - columns}"
@@ -111,8 +116,12 @@ class TestStandardTables:
         )
         columns = {row[0] for row in result.fetchall()}
         expected = {
-            "id", "user_id", "coldkey_address", "label",
-            "is_watch_only", "created_at",
+            "id",
+            "user_id",
+            "coldkey_address",
+            "label",
+            "is_watch_only",
+            "created_at",
         }
         assert expected.issubset(columns), f"Missing columns: {expected - columns}"
 
@@ -126,8 +135,11 @@ class TestStandardTables:
         )
         columns = {row[0] for row in result.fetchall()}
         expected = {
-            "source", "last_processed_at", "last_block_number",
-            "metadata_json", "updated_at",
+            "source",
+            "last_processed_at",
+            "last_block_number",
+            "metadata_json",
+            "updated_at",
         }
         assert expected.issubset(columns), f"Missing columns: {expected - columns}"
 
@@ -211,9 +223,7 @@ class TestRetentionPolicies:
         missing = expected - tables_with_retention
         assert not missing, f"Missing retention policies: {missing}"
 
-    async def test_no_retention_on_emission_records(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_no_retention_on_emission_records(self, db_session: AsyncSession) -> None:
         result = await db_session.execute(
             text("""
                 SELECT hypertable_name
@@ -222,13 +232,9 @@ class TestRetentionPolicies:
                   AND hypertable_name = 'emission_records'
             """)
         )
-        assert result.fetchone() is None, (
-            "emission_records should NOT have retention policy"
-        )
+        assert result.fetchone() is None, "emission_records should NOT have retention policy"
 
-    async def test_no_retention_on_portfolio_snapshots(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_no_retention_on_portfolio_snapshots(self, db_session: AsyncSession) -> None:
         result = await db_session.execute(
             text("""
                 SELECT hypertable_name
@@ -237,9 +243,7 @@ class TestRetentionPolicies:
                   AND hypertable_name = 'portfolio_snapshots'
             """)
         )
-        assert result.fetchone() is None, (
-            "portfolio_snapshots should NOT have retention policy"
-        )
+        assert result.fetchone() is None, "portfolio_snapshots should NOT have retention policy"
 
 
 class TestForeignKeyCascade:
@@ -265,8 +269,6 @@ class TestForeignKeyCascade:
             """)
         )
         row = result.fetchone()
-        assert row is not None, (
-            "FK constraint fk_alert_history_alert_config_id not found"
-        )
+        assert row is not None, "FK constraint fk_alert_history_alert_config_id not found"
         confdeltype = row[0] if isinstance(row[0], str) else row[0].decode()
         assert confdeltype == "c", f"Expected CASCADE (c), got: {confdeltype}"
