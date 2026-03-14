@@ -64,6 +64,49 @@ class TestPortfolioResponseSchema:
         assert resp.subnets_exposed == 0
         assert resp.coldkeys_resolved == 1
 
+    def test_change_fields_default_to_none(self) -> None:
+        resp = PortfolioResponseSchema(
+            total_value_tao=150.75,
+            total_staked_tao=100.5,
+            total_alpha_value_tao=50.25,
+            positions=[],
+            subnets_exposed=0,
+            coldkeys_resolved=1,
+            last_updated="2026-03-14T14:30:00Z",
+        )
+        assert resp.change_24h_pct is None
+        assert resp.change_7d_pct is None
+
+    def test_change_fields_with_values(self) -> None:
+        resp = PortfolioResponseSchema(
+            total_value_tao=150.75,
+            total_staked_tao=100.5,
+            total_alpha_value_tao=50.25,
+            positions=[],
+            subnets_exposed=0,
+            coldkeys_resolved=1,
+            last_updated="2026-03-14T14:30:00Z",
+            change_24h_pct=4.2,
+            change_7d_pct=-2.1,
+        )
+        assert resp.change_24h_pct == 4.2
+        assert resp.change_7d_pct == -2.1
+
+    def test_change_fields_serialized_in_json(self) -> None:
+        resp = PortfolioResponseSchema(
+            total_value_tao=100.0,
+            total_staked_tao=80.0,
+            total_alpha_value_tao=20.0,
+            positions=[],
+            subnets_exposed=0,
+            coldkeys_resolved=1,
+            last_updated="2026-03-14T14:30:00Z",
+        )
+        data = resp.model_dump()
+        assert "change_24h_pct" in data
+        assert "change_7d_pct" in data
+        assert data["change_24h_pct"] is None
+
     def test_with_positions(self) -> None:
         pos = SubnetPositionSchema(
             netuid=1,
