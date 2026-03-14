@@ -20,6 +20,7 @@ from engine.core.logging import get_logger, setup_logging
 from engine.core.redis import close_redis
 from engine.ingestion.metagraph_sync import run_metagraph_sync_cycle
 from engine.ingestion.price_tracker import run_price_sync_cycle
+from engine.ingestion.taostats_sync import run_taostats_backfill
 from engine.schemas.errors import ENGINE_VERSION, ErrorDetail, ErrorResponseSchema
 
 log = get_logger(__name__)
@@ -87,11 +88,24 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         misfire_grace_time=60,
     )
 
+    # Register Taostats historical backfill job (daily cron)
+    scheduler.add_job(
+        run_taostats_backfill,
+        trigger="cron",
+        hour=settings.taostats_backfill_hour_utc,
+        timezone="UTC",
+        id="taostats_backfill",
+        name="Taostats Historical Backfill",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
     scheduler.start()
     log.info(
         "scheduler_started",
         metagraph_sync_interval_s=settings.metagraph_sync_interval_seconds,
         price_sync_interval_s=settings.price_sync_interval_seconds,
+        taostats_backfill_hour_utc=settings.taostats_backfill_hour_utc,
     )
 
     yield
