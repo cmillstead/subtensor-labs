@@ -1,5 +1,7 @@
 """Tests for exception handlers in main.py."""
 
+from collections.abc import Generator
+
 import pytest
 from httpx import AsyncClient
 
@@ -8,8 +10,8 @@ from engine.main import app
 
 
 @pytest.fixture(autouse=True)
-def _register_test_routes() -> None:
-    """Register temporary test routes that raise exceptions."""
+def _register_test_routes() -> Generator[None, None, None]:
+    """Register temporary test routes that raise exceptions, then clean up."""
     from fastapi import APIRouter
 
     test_router = APIRouter(prefix="/engine/test")
@@ -22,11 +24,12 @@ def _register_test_routes() -> None:
     async def raise_unhandled() -> None:
         raise RuntimeError("unexpected failure")
 
-    # Only add if not already registered
-    for route in app.routes:
-        if hasattr(route, "path") and route.path == "/engine/test/engine-error":  # type: ignore[union-attr]
-            return
+    # Snapshot routes before adding test routes
+    original_routes = list(app.routes)
     app.include_router(test_router)
+    yield
+    # Restore original routes
+    app.routes[:] = original_routes
 
 
 @pytest.mark.asyncio

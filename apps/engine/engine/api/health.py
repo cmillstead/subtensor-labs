@@ -1,26 +1,27 @@
 """Engine health check endpoint."""
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
 
 from engine.core.database import check_db_health
 from engine.core.redis import check_redis_health
+from engine.schemas import BaseSchema
 from engine.schemas.errors import ENGINE_VERSION
 
 
-class HealthData(BaseModel):
+class HealthData(BaseSchema):
     status: str
     engine: str
     database: str
     redis: str
 
 
-class HealthMeta(BaseModel):
+class HealthMeta(BaseSchema):
     service: str
     version: str
 
 
-class HealthResponse(BaseModel):
+class HealthResponse(BaseSchema):
     data: HealthData
     meta: HealthMeta
 
@@ -29,14 +30,15 @@ router = APIRouter()
 
 
 @router.get("/health", response_model=HealthResponse)
-async def health_check() -> HealthResponse:
+async def health_check() -> JSONResponse:
     """Return engine health status including database and Redis connectivity."""
     db_healthy = await check_db_health()
     redis_healthy = await check_redis_health()
 
-    status = "healthy" if (db_healthy and redis_healthy) else "degraded"
+    is_healthy = db_healthy and redis_healthy
+    status = "healthy" if is_healthy else "degraded"
 
-    return HealthResponse(
+    body = HealthResponse(
         data=HealthData(
             status=status,
             engine="running",
@@ -47,4 +49,8 @@ async def health_check() -> HealthResponse:
             service="subtensor-labs-engine",
             version=ENGINE_VERSION,
         ),
+    )
+    return JSONResponse(
+        status_code=200 if is_healthy else 503,
+        content=body.model_dump(),
     )

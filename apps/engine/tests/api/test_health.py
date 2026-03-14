@@ -27,14 +27,14 @@ async def test_health_endpoint_healthy(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_health_endpoint_degraded_no_db(client: AsyncClient) -> None:
-    """Health endpoint returns degraded when database is down."""
+    """Health endpoint returns 503 with degraded status when database is down."""
     with (
         patch("engine.api.health.check_db_health", new_callable=AsyncMock, return_value=False),
         patch("engine.api.health.check_redis_health", new_callable=AsyncMock, return_value=True),
     ):
         response = await client.get("/engine/health")
 
-    assert response.status_code == 200
+    assert response.status_code == 503
     data = response.json()
     assert data["data"]["status"] == "degraded"
     assert data["data"]["database"] == "disconnected"
@@ -43,14 +43,14 @@ async def test_health_endpoint_degraded_no_db(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_health_endpoint_degraded_no_redis(client: AsyncClient) -> None:
-    """Health endpoint returns degraded when Redis is down."""
+    """Health endpoint returns 503 with degraded status when Redis is down."""
     with (
         patch("engine.api.health.check_db_health", new_callable=AsyncMock, return_value=True),
         patch("engine.api.health.check_redis_health", new_callable=AsyncMock, return_value=False),
     ):
         response = await client.get("/engine/health")
 
-    assert response.status_code == 200
+    assert response.status_code == 503
     data = response.json()
     assert data["data"]["status"] == "degraded"
     assert data["data"]["database"] == "connected"
@@ -59,14 +59,14 @@ async def test_health_endpoint_degraded_no_redis(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_health_endpoint_degraded_both_down(client: AsyncClient) -> None:
-    """Health endpoint returns degraded when both services are down."""
+    """Health endpoint returns 503 with degraded status when both services are down."""
     with (
         patch("engine.api.health.check_db_health", new_callable=AsyncMock, return_value=False),
         patch("engine.api.health.check_redis_health", new_callable=AsyncMock, return_value=False),
     ):
         response = await client.get("/engine/health")
 
-    assert response.status_code == 200
+    assert response.status_code == 503
     data = response.json()
     assert data["data"]["status"] == "degraded"
     assert data["data"]["database"] == "disconnected"

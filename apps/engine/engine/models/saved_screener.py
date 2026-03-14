@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from engine.core.database import Base
 
@@ -25,3 +25,5 @@ class SavedScreener(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+    user: Mapped["User"] = relationship(back_populates="saved_screeners")  # noqa: F821

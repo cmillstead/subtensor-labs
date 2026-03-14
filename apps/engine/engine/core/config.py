@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     metagraph_sync_interval_seconds: int = 120
     metagraph_sync_workers: int = 8
 
-    # Cache TTLs (seconds)
+    # Cache TTLs (seconds) — defaults synchronized with packages/shared/constants.ts CACHE_TTL
     cache_ttl_metagraph: int = 180
     cache_ttl_price: int = 180
     cache_ttl_portfolio: int = 300
@@ -45,13 +45,19 @@ class Settings(BaseSettings):
     model_config = {"env_prefix": "ENGINE_", "env_file": ".env", "case_sensitive": False}
 
     @model_validator(mode="after")
-    def validate_encryption_key(self) -> "Settings":
-        """Require encryption key in non-debug mode."""
-        if not self.debug and not self.address_encryption_key:
-            raise ValueError(
-                "ENGINE_ADDRESS_ENCRYPTION_KEY must be set in production. "
-                "Set ENGINE_DEBUG=true for local development without encryption."
-            )
+    def validate_production_settings(self) -> "Settings":
+        """Validate security-critical settings in non-debug mode."""
+        if not self.debug:
+            if not self.address_encryption_key:
+                raise ValueError(
+                    "ENGINE_ADDRESS_ENCRYPTION_KEY must be set in production. "
+                    "Set ENGINE_DEBUG=true for local development without encryption."
+                )
+            if "*" in self.cors_origins:
+                raise ValueError(
+                    "ENGINE_CORS_ORIGINS must not contain '*' in production. "
+                    "Specify explicit allowed origins."
+                )
         return self
 
 

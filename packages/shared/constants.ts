@@ -17,7 +17,7 @@ export const TAO_PER_DAY = EMISSION_PER_BLOCK * BLOCKS_PER_DAY;
 /** Default metagraph sync interval in seconds */
 export const SYNC_INTERVAL_SECONDS = 120;
 
-/** Default cache TTLs in seconds */
+/** Default cache TTLs in seconds — synchronized with apps/engine/engine/core/config.py cache_ttl_* */
 export const CACHE_TTL = {
   METAGRAPH: 180,
   PRICE: 180,

@@ -1,11 +1,12 @@
 """Error response envelope schema."""
 
-from pydantic import BaseModel
+from engine import __version__
+from engine.schemas import BaseSchema
 
-ENGINE_VERSION = "0.1.0"
+ENGINE_VERSION: str = __version__
 
 
-class ErrorDetail(BaseModel):
+class ErrorDetail(BaseSchema):
     """Error detail within the error envelope."""
 
     type: str
@@ -13,7 +14,7 @@ class ErrorDetail(BaseModel):
     code: int
 
 
-class ErrorResponseSchema(BaseModel):
+class ErrorResponseSchema(BaseSchema):
     """Standard error response envelope."""
 
     error: ErrorDetail

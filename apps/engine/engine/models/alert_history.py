@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from engine.core.database import Base
 
@@ -22,3 +22,5 @@ class AlertHistory(Base):
     )
     context_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     acknowledged: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+
+    alert_config: Mapped["AlertConfig"] = relationship(back_populates="history")  # noqa: F821

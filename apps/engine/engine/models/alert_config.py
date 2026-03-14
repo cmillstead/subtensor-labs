@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from engine.core.database import Base
 
@@ -23,4 +23,9 @@ class AlertConfig(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     last_triggered_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    user: Mapped["User"] = relationship(back_populates="alert_configs")  # noqa: F821
+    history: Mapped[list["AlertHistory"]] = relationship(  # noqa: F821
+        back_populates="alert_config", cascade="all, delete-orphan"
     )

@@ -27,8 +27,15 @@ def _redact_addresses(
 
 
 def setup_logging(*, debug: bool = False) -> None:
-    """Configure structlog for JSON output with address redaction."""
+    """Configure structlog with address redaction.
+
+    In debug mode, uses human-readable console output.
+    In production, uses JSON output for structured log aggregation.
+    """
     global _configured  # noqa: PLW0603
+    renderer: structlog.types.Processor = (
+        structlog.dev.ConsoleRenderer() if debug else structlog.processors.JSONRenderer()
+    )
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
@@ -37,7 +44,7 @@ def setup_logging(*, debug: bool = False) -> None:
             structlog.processors.StackInfoRenderer(),
             _redact_addresses,
             structlog.processors.format_exc_info,
-            structlog.processors.JSONRenderer(),
+            renderer,
         ],
         wrapper_class=structlog.stdlib.BoundLogger,
         context_class=dict,
