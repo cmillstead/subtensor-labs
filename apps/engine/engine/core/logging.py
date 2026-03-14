@@ -60,3 +60,10 @@ def get_logger(name: str) -> structlog.stdlib.BoundLogger:
         setup_logging()
     logger: structlog.stdlib.BoundLogger = structlog.get_logger(name)
     return logger
+
+
+def truncate_address(address: str) -> str:
+    """Truncate a Bittensor address for safe logging (first/last 6 chars)."""
+    if len(address) <= 12:
+        return address
+    return f"{address[:6]}...{address[-6:]}"
