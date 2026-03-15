@@ -1,4 +1,4 @@
-import type { PortfolioResult } from "@/types";
+import type { PortfolioResult, ScreenerSubnet } from "@/types";
 
 const CSV_HEADERS = [
   "subnet_name",
@@ -84,6 +84,56 @@ export function generatePortfolioFilename(): string {
   const date = new Date().toISOString().slice(0, 10);
   return `subtensor-labs-portfolio-${date}.csv`;
 }
+
+/* ── Screener CSV ────────────────────────────────────────────────── */
+
+const SCREENER_HEADERS = [
+  "netuid",
+  "name",
+  "miner_count",
+  "validator_count",
+  "registration_cost",
+  "emission_share_pct",
+  "alpha_price",
+  "alpha_market_cap",
+  "fill_rate_pct",
+  "owner_take_rate_pct",
+  "tao_reserves",
+  "alpha_reserves",
+  "subnet_age_days",
+] as const;
+
+export function generateScreenerCsv(subnets: ScreenerSubnet[]): string {
+  const lines: string[] = [SCREENER_HEADERS.join(",")];
+
+  for (const s of subnets) {
+    const fields = [
+      formatValue(s.netuid),
+      formatValue(s.name),
+      formatValue(s.miner_count),
+      formatValue(s.validator_count),
+      formatValue(s.registration_cost),
+      formatValue(s.emission_share * 100),
+      formatValue(s.alpha_price),
+      formatValue(s.alpha_market_cap),
+      formatValue(s.fill_rate * 100),
+      formatValue(s.owner_take_rate * 100),
+      formatValue(s.tao_reserves),
+      formatValue(s.alpha_reserves),
+      formatValue(s.subnet_age_days),
+    ];
+    lines.push(fields.map(escapeField).join(","));
+  }
+
+  return lines.join("\n");
+}
+
+export function generateScreenerFilename(): string {
+  const date = new Date().toISOString().slice(0, 10);
+  return `subtensor-labs-screener-${date}.csv`;
+}
+
+/* ── Shared download helper ──────────────────────────────────────── */
 
 export function downloadCsv(csvContent: string, filename: string): void {
   const bom = "\uFEFF";
