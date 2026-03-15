@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     # Application
     app_name: str = "subtensor-labs-engine"
     debug: bool = False
+    # Binds all interfaces — expected for Docker; restrict in bare-metal deploys
     host: str = "0.0.0.0"
     port: int = 8000
 

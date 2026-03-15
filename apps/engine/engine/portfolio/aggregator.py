@@ -33,16 +33,46 @@ def _merge_positions(
 
     When the same hotkey appears under multiple coldkeys (e.g., user owns
     multiple coldkeys but delegates to the same validator), keep only the
-    first occurrence to avoid double-counting.
+    first occurrence to avoid double-counting. Delegation lists are merged
+    for positions in the same subnet.
     """
     seen_hotkeys: set[str] = set()
+    # Track per-subnet: (index in merged list, set of seen validator hotkeys)
+    netuid_index: dict[int, int] = {}
+    netuid_validators: dict[int, set[str]] = {}
     merged: list[SubnetPositionSchema] = []
+
     for result in per_coldkey_results:
         for pos in result.positions:
             key = f"{pos.netuid}:{pos.hotkey}"
             if key not in seen_hotkeys:
                 seen_hotkeys.add(key)
                 merged.append(pos)
+
+                # Aggregate delegations per subnet
+                if pos.netuid in netuid_index:
+                    idx = netuid_index[pos.netuid]
+                    existing = merged[idx]
+                    seen_vals = netuid_validators[pos.netuid]
+
+                    new_delegations = [
+                        d
+                        for d in pos.delegations
+                        if d.validator_hotkey not in seen_vals
+                    ]
+                    if new_delegations:
+                        for d in new_delegations:
+                            seen_vals.add(d.validator_hotkey)
+                        combined = list(existing.delegations) + new_delegations
+                        merged[idx] = existing.model_copy(
+                            update={"delegations": combined}
+                        )
+                else:
+                    netuid_index[pos.netuid] = len(merged) - 1
+                    netuid_validators[pos.netuid] = {
+                        d.validator_hotkey for d in pos.delegations
+                    }
+
     return merged
 
 

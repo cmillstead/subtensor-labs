@@ -113,7 +113,6 @@ async def test_health_endpoint_healthy(
     assert data["data"]["sync"]["sync_healthy"] is True
     assert data["data"]["price_sync"]["price_sync_healthy"] is True
     assert data["meta"]["service"] == "subtensor-labs-engine"
-    assert data["meta"]["version"] == "0.1.0"
 
 
 @pytest.mark.asyncio
@@ -245,7 +244,7 @@ async def test_health_response_matches_schema(
         "price_sync",
         "backfill",
     }
-    assert set(data["meta"].keys()) == {"service", "version"}
+    assert set(data["meta"].keys()) == {"service"}
 
 
 @pytest.mark.asyncio

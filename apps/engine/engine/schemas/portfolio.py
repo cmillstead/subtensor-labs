@@ -12,12 +12,24 @@ _SS58_PATTERN = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{46,48}$")
 _MAX_ADDRESSES = 20
 
 
+class DelegationDetailSchema(BaseSchema):
+    """Delegation detail for a single validator relationship."""
+
+    validator_hotkey: str
+    validator_name: str | None = None
+    delegated_amount: float
+    estimated_apy: float | None = None
+    take_rate: float
+
+
 class SubnetPositionSchema(BaseSchema):
     """Per-subnet position detail for a portfolio."""
 
     netuid: int
+    subnet_name: str | None = None
     hotkey: str
     staked_tao: float
+    alpha_holdings: float = 0.0
     alpha_value_tao: float
     emission_share: float
     incentive: float
@@ -25,6 +37,7 @@ class SubnetPositionSchema(BaseSchema):
     dividends: float
     is_active: bool
     is_miner: bool
+    delegations: list[DelegationDetailSchema] = []
 
 
 class ColdkeyPortfolioSchema(BaseSchema):

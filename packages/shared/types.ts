@@ -33,10 +33,16 @@ export interface AlphaPrice {
 export interface SubnetPosition {
   netuid: number;
   subnet_name: string | null;
+  hotkey: string;
   staked_tao: number;
   alpha_holdings: number;
   alpha_value_tao: number;
   emission_share: number;
+  incentive: number;
+  trust: number;
+  dividends: number;
+  is_active: boolean;
+  is_miner: boolean;
   delegations: DelegationDetail[];
 }
 
