@@ -121,6 +121,31 @@ export interface ScreenerFilter {
   sort_direction: "asc" | "desc";
 }
 
+/** Per-subnet data for the screener table (matches Python ScreenerSubnetSchema) */
+export interface ScreenerSubnet {
+  netuid: number;
+  name: string | null;
+  miner_count: number;
+  validator_count: number;
+  registration_cost: number;
+  emission_share: number;
+  alpha_price: number;
+  alpha_market_cap: number;
+  fill_rate: number;
+  owner_take_rate: number;
+  tao_reserves: number;
+  alpha_reserves: number;
+  subnet_age_days: number;
+  sparkline_emission_7d: number[];
+  sparkline_price_7d: number[];
+}
+
+/** Screener query result (matches Python ScreenerResponseSchema) */
+export interface ScreenerResult {
+  subnets: ScreenerSubnet[];
+  subnet_count: number;
+}
+
 /** Standard API response envelope from engine */
 export interface EngineResponse<T> {
   data: T;
