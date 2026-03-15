@@ -11,7 +11,6 @@ from engine.core.logging import get_logger
 from engine.core.redis import check_redis_health, get_redis
 from engine.models.ingestion_cursor import IngestionCursor
 from engine.schemas import BaseSchema
-from engine.schemas.errors import ENGINE_VERSION
 
 log = get_logger(__name__)
 
@@ -56,7 +55,6 @@ class HealthData(BaseSchema):
 
 class HealthMeta(BaseSchema):
     service: str
-    version: str
 
 
 class HealthResponse(BaseSchema):
@@ -280,7 +278,6 @@ async def health_check() -> JSONResponse:
         ),
         meta=HealthMeta(
             service="subtensor-labs-engine",
-            version=ENGINE_VERSION,
         ),
     )
     return JSONResponse(

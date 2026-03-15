@@ -9,6 +9,10 @@ import {
   PortfolioSummary,
   PortfolioSkeleton,
 } from "@/components/portfolio/PortfolioSummary";
+import {
+  SubnetPositionList,
+  SubnetPositionListSkeleton,
+} from "@/components/portfolio/SubnetPositionList";
 import { usePortfolio } from "@/hooks/usePortfolio";
 
 function makeQueryClient() {
@@ -59,7 +63,12 @@ function DashboardContent() {
         </div>
       )}
 
-      {isLoading && <PortfolioSkeleton />}
+      {isLoading && (
+        <>
+          <PortfolioSkeleton />
+          <SubnetPositionListSkeleton />
+        </>
+      )}
 
       {isError && (
         <div
@@ -76,11 +85,27 @@ function DashboardContent() {
       )}
 
       {data?.data && (
-        <PortfolioSummary
-          portfolio={data.data}
-          change24h={data.data.change_24h_pct}
-          change7d={data.data.change_7d_pct}
-        />
+        <>
+          <PortfolioSummary
+            portfolio={data.data}
+            change24h={data.data.change_24h_pct}
+            change7d={data.data.change_7d_pct}
+          />
+
+          {data.data.positions.length > 0 && (
+            <section>
+              <div className="mb-3 flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Subnet Positions
+                </h2>
+                <span className="rounded-full bg-surface-elevated px-2 py-0.5 font-mono text-xs text-text-secondary">
+                  {data.data.positions.length}
+                </span>
+              </div>
+              <SubnetPositionList positions={data.data.positions} />
+            </section>
+          )}
+        </>
       )}
     </div>
   );
