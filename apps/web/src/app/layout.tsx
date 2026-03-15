@@ -82,6 +82,14 @@ function Navigation() {
       <ul className="flex list-none gap-6 text-sm">
         <li>
           <Link
+            href="/explore"
+            className="text-text-secondary hover:text-text-primary transition-colors"
+          >
+            Explore
+          </Link>
+        </li>
+        <li>
+          <Link
             href="/screener"
             className="text-text-secondary hover:text-text-primary transition-colors"
           >

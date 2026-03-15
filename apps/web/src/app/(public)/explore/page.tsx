@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { getQueryClient } from "@/lib/query-client";
-
-// Page title set via companion layout.tsx (Client Components cannot export metadata)
-import { AddressManager } from "@/components/portfolio/AddressManager";
+import { ExploreAddressInput } from "@/components/portfolio/ExploreAddressInput";
 import {
   PortfolioSummary,
   PortfolioSkeleton,
@@ -18,61 +16,36 @@ import {
   AllocationDonut,
   AllocationDonutSkeleton,
 } from "@/components/portfolio/AllocationDonut";
-import {
-  PortfolioValueChart,
-  PortfolioValueChartSkeleton,
-} from "@/components/portfolio/PortfolioValueChart";
-import { TimeRangeSelector } from "@/components/common/TimeRangeSelector";
-import { ExportCsvButton } from "@/components/portfolio/ExportCsvButton";
 import { usePortfolio } from "@/hooks/usePortfolio";
-import { usePortfolioHistory } from "@/hooks/usePortfolioHistory";
-import { usePersistedAddresses } from "@/hooks/usePersistedAddresses";
-import type { TimeRange } from "@/types";
 
-function DashboardContent() {
-  const {
-    addresses: labeledAddresses,
-    setAddresses: setLabeledAddresses,
-    hydrated,
-  } = usePersistedAddresses();
-  const [timeRange, setTimeRange] = useState<TimeRange>("30d");
-
-  // Extract plain address strings for API hooks
-  const addressStrings = useMemo(
-    () => labeledAddresses.map((a) => a.address),
-    [labeledAddresses],
+function ExploreContent() {
+  const [address, setAddress] = useState<string | null>(null);
+  const { data, isLoading, isError, error } = usePortfolio(
+    address ? [address] : [],
   );
-
-  const { data, isLoading, isError, error } = usePortfolio(addressStrings);
-  const history = usePortfolioHistory(addressStrings, timeRange);
 
   return (
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold text-text-primary">
-          Portfolio Dashboard
+          Explore Portfolio
         </h1>
         <p className="mt-1 text-sm text-text-secondary">
-          Enter your coldkey addresses to view your Bittensor position.
+          Paste any coldkey address to view its Bittensor portfolio. No account
+          required.
         </p>
       </header>
 
-      <AddressManager
-        addresses={labeledAddresses}
-        onAddressesChange={setLabeledAddresses}
-      />
+      <ExploreAddressInput onSubmit={setAddress} isLoading={isLoading} />
 
-      {hydrated && addressStrings.length > 0 && (
-        <div className="flex justify-end">
-          <ExportCsvButton data={data?.data} isLoading={isLoading} />
-        </div>
-      )}
-
-      {hydrated && labeledAddresses.length === 0 && (
+      {!address && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
-          <p className="text-lg text-text-secondary">No addresses added</p>
+          <p className="text-lg text-text-secondary">
+            Enter an address to get started
+          </p>
           <p className="mt-1 text-sm text-text-muted">
-            Paste a coldkey address above to see your portfolio summary.
+            View any coldkey&apos;s portfolio — staking positions, subnet
+            allocations, and delegation details.
           </p>
         </div>
       )}
@@ -88,14 +61,6 @@ function DashboardContent() {
             </div>
             <AllocationDonutSkeleton />
           </section>
-          <section className="rounded-lg border border-border bg-surface p-5">
-            <div className="mb-3">
-              <h2 className="text-lg font-semibold text-text-primary">
-                Portfolio Value
-              </h2>
-            </div>
-            <PortfolioValueChartSkeleton />
-          </section>
           <SubnetPositionListSkeleton />
         </>
       )}
@@ -109,7 +74,7 @@ function DashboardContent() {
             {error?.message ?? "Failed to load portfolio data"}
           </p>
           <p className="mt-1 text-xs text-text-muted">
-            Check that your address is correct and try again.
+            Check that the address is correct and try again.
           </p>
         </div>
       )}
@@ -136,27 +101,6 @@ function DashboardContent() {
                 />
               </section>
 
-              <section className="rounded-lg border border-border bg-surface p-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-text-primary">
-                    Portfolio Value
-                  </h2>
-                  <TimeRangeSelector
-                    value={timeRange}
-                    onChange={setTimeRange}
-                  />
-                </div>
-                {history.isLoading ? (
-                  <PortfolioValueChartSkeleton />
-                ) : history.data?.data ? (
-                  <PortfolioValueChart
-                    points={history.data.data.points}
-                    dataStart={history.data.data.data_start}
-                    timeRange={timeRange}
-                  />
-                ) : null}
-              </section>
-
               <section>
                 <div className="mb-3 flex items-center gap-2">
                   <h2 className="text-lg font-semibold text-text-primary">
@@ -176,12 +120,12 @@ function DashboardContent() {
   );
 }
 
-export default function DashboardPage() {
+export default function ExplorePage() {
   const queryClient = getQueryClient();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <DashboardContent />
+      <ExploreContent />
     </QueryClientProvider>
   );
 }
