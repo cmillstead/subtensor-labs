@@ -12,6 +12,10 @@ export type {
   ScreenerSortField,
   ScreenerSubnet,
   ScreenerResult,
+  SubnetDetail,
+  SubnetHistoryPoint,
+  SubnetNeuron,
+  SubnetDetailResult,
   EngineResponse,
   ErrorResponse,
 } from "@subtensor-labs/shared";
