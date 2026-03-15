@@ -39,9 +39,7 @@ async def _get_latest_prices(session: AsyncSession) -> dict[int, float]:
     return prices
 
 
-async def _query_db_positions(
-    coldkey: str, session: AsyncSession
-) -> list[dict[str, Any]]:
+async def _query_db_positions(coldkey: str, session: AsyncSession) -> list[dict[str, Any]]:
     """Query latest metagraph entries for a coldkey across all subnets.
 
     Uses ix_metagraph_entries_coldkey index for efficient lookup.

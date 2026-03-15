@@ -4,7 +4,13 @@ from unittest.mock import patch
 
 import pytest
 
-from engine.main import scheduler
+import engine.main
+
+
+def _get_scheduler() -> "engine.main.AsyncIOScheduler":
+    """Get the current scheduler instance (created fresh in each lifespan)."""
+    assert engine.main.scheduler is not None, "scheduler not initialized — lifespan not entered"
+    return engine.main.scheduler
 
 
 class TestSchedulerRegistration:
@@ -18,12 +24,14 @@ class TestSchedulerRegistration:
         with (
             patch("engine.main.run_metagraph_sync_cycle") as _mock_sync,
             patch("engine.main.run_price_sync_cycle") as _mock_price,
+            patch("engine.main.run_taostats_backfill"),
             patch("engine.main.dispose_subtensor"),
             patch("engine.main.dispose_engine"),
             patch("engine.main.close_redis"),
         ):
             async with lifespan(mock_app):  # type: ignore[arg-type]
-                job = scheduler.get_job("metagraph_sync")
+                sched = _get_scheduler()
+                job = sched.get_job("metagraph_sync")
                 assert job is not None
                 assert job.name == "Metagraph Sync Pipeline"
                 assert hasattr(job.trigger, "interval")
@@ -50,7 +58,8 @@ class TestSchedulerRegistration:
             mock_settings.taostats_backfill_hour_utc = 3
 
             async with lifespan(None):  # type: ignore[arg-type]
-                job = scheduler.get_job("metagraph_sync")
+                sched = _get_scheduler()
+                job = sched.get_job("metagraph_sync")
                 assert job is not None
                 assert job.trigger.interval.total_seconds() == 60
 
@@ -70,7 +79,8 @@ class TestSchedulerRegistration:
             patch("engine.main.close_redis"),
         ):
             async with lifespan(mock_app):  # type: ignore[arg-type]
-                job = scheduler.get_job("price_sync")
+                sched = _get_scheduler()
+                job = sched.get_job("price_sync")
                 assert job is not None
                 assert job.name == "Alpha Token Price Tracker"
                 assert hasattr(job.trigger, "interval")
@@ -97,7 +107,8 @@ class TestSchedulerRegistration:
             mock_settings.taostats_backfill_hour_utc = 3
 
             async with lifespan(None):  # type: ignore[arg-type]
-                job = scheduler.get_job("price_sync")
+                sched = _get_scheduler()
+                job = sched.get_job("price_sync")
                 assert job is not None
                 assert job.trigger.interval.total_seconds() == 90
 
@@ -115,7 +126,8 @@ class TestSchedulerRegistration:
             patch("engine.main.close_redis"),
         ):
             async with lifespan(None):  # type: ignore[arg-type]
-                job = scheduler.get_job("taostats_backfill")
+                sched = _get_scheduler()
+                job = sched.get_job("taostats_backfill")
                 assert job is not None
                 assert job.name == "Taostats Historical Backfill"
 
@@ -141,7 +153,8 @@ class TestSchedulerRegistration:
             mock_settings.taostats_backfill_hour_utc = 4
 
             async with lifespan(None):  # type: ignore[arg-type]
-                job = scheduler.get_job("taostats_backfill")
+                sched = _get_scheduler()
+                job = sched.get_job("taostats_backfill")
                 assert job is not None
                 # CronTrigger doesn't have .interval — check it's a cron type
                 from apscheduler.triggers.cron import CronTrigger

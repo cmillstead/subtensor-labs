@@ -21,6 +21,9 @@ repos:
           - fastapi
           - redis
           - structlog
+          - cryptography
+          - httpx
+          - apscheduler
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

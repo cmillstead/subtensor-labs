@@ -31,7 +31,7 @@ def get_redis() -> Redis:
 async def check_redis_health() -> bool:
     """Check if Redis is reachable."""
     try:
-        result = await get_redis().ping()  # type: ignore[misc]  # redis-py async stubs return Awaitable[ResponseT]
+        result = await get_redis().ping()  # type: ignore[misc,unused-ignore]
         return bool(result)
     except Exception:
         log.warning("redis_health_check_failed", exc_info=True)

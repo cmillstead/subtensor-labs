@@ -56,22 +56,16 @@ def _merge_positions(
                     seen_vals = netuid_validators[pos.netuid]
 
                     new_delegations = [
-                        d
-                        for d in pos.delegations
-                        if d.validator_hotkey not in seen_vals
+                        d for d in pos.delegations if d.validator_hotkey not in seen_vals
                     ]
                     if new_delegations:
                         for d in new_delegations:
                             seen_vals.add(d.validator_hotkey)
                         combined = list(existing.delegations) + new_delegations
-                        merged[idx] = existing.model_copy(
-                            update={"delegations": combined}
-                        )
+                        merged[idx] = existing.model_copy(update={"delegations": combined})
                 else:
                     netuid_index[pos.netuid] = len(merged) - 1
-                    netuid_validators[pos.netuid] = {
-                        d.validator_hotkey for d in pos.delegations
-                    }
+                    netuid_validators[pos.netuid] = {d.validator_hotkey for d in pos.delegations}
 
     return merged
 
