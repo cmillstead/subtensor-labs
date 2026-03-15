@@ -18,11 +18,11 @@ function createWrapper() {
 const mockPortfolioResponse = {
   data: {
     total_value_tao: 1234.56,
-    free_balance_tao: 100,
-    staked_tao: 900,
-    alpha_value_tao: 234.56,
+    total_staked_tao: 900,
+    total_alpha_value_tao: 234.56,
     positions: [],
-    addresses: ["5D..."],
+    subnets_exposed: 0,
+    coldkeys_resolved: 1,
     last_updated: "2026-03-14T14:30:00Z",
   },
   meta: {

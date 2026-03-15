@@ -63,6 +63,8 @@ def _merge_positions(
                             seen_vals.add(d.validator_hotkey)
                         combined = list(existing.delegations) + new_delegations
                         merged[idx] = existing.model_copy(update={"delegations": combined})
+                    # Clear delegations from the appended position to avoid double-counting
+                    merged[-1] = merged[-1].model_copy(update={"delegations": []})
                 else:
                     netuid_index[pos.netuid] = len(merged) - 1
                     netuid_validators[pos.netuid] = {d.validator_hotkey for d in pos.delegations}

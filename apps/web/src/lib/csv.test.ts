@@ -24,11 +24,11 @@ function makePosition(overrides: Partial<SubnetPosition> = {}): SubnetPosition {
 function makeResult(overrides: Partial<PortfolioResult> = {}): PortfolioResult {
   return {
     total_value_tao: 200,
-    free_balance_tao: 10,
-    staked_tao: 150,
-    alpha_value_tao: 40,
+    total_staked_tao: 150,
+    total_alpha_value_tao: 40,
     positions: [],
-    addresses: ["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"],
+    subnets_exposed: 1,
+    coldkeys_resolved: 1,
     last_updated: "2026-03-14T12:00:00Z",
     change_24h_pct: 2.5,
     change_7d_pct: -1.3,
