@@ -68,6 +68,22 @@ export interface PortfolioResult {
   change_7d_pct: number | null;
 }
 
+/** Time range options for historical charts */
+export type TimeRange = "7d" | "30d" | "90d";
+
+/** A single data point in portfolio history */
+export interface PortfolioHistoryPoint {
+  time: string;
+  total_value_tao: number;
+}
+
+/** Portfolio history response from engine */
+export interface PortfolioHistoryResult {
+  points: PortfolioHistoryPoint[];
+  data_start: string | null;
+  time_range: string;
+}
+
 /** Valid sort fields for screener queries */
 export type ScreenerSortField =
   | "miner_count"
