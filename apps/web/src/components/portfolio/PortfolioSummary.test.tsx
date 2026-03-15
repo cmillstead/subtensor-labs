@@ -14,9 +14,8 @@ afterEach(() => {
 
 const mockPortfolio: PortfolioResult = {
   total_value_tao: 12456.78,
-  free_balance_tao: 500,
-  staked_tao: 10000,
-  alpha_value_tao: 1956.78,
+  total_staked_tao: 10000,
+  total_alpha_value_tao: 1956.78,
   positions: [
     {
       netuid: 1,
@@ -49,7 +48,8 @@ const mockPortfolio: PortfolioResult = {
       delegations: [],
     },
   ],
-  addresses: ["5DTest1", "5DTest2"],
+  subnets_exposed: 2,
+  coldkeys_resolved: 2,
   last_updated: "2026-03-14T14:58:00Z",
   change_24h_pct: null,
   change_7d_pct: null,

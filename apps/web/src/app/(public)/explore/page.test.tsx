@@ -27,9 +27,8 @@ function mockPortfolioData() {
     data: {
       data: {
         total_value_tao: 500,
-        free_balance_tao: 10,
-        staked_tao: 400,
-        alpha_value_tao: 90,
+        total_staked_tao: 400,
+        total_alpha_value_tao: 90,
         positions: [
           {
             netuid: 1,
@@ -47,7 +46,8 @@ function mockPortfolioData() {
             delegations: [],
           },
         ],
-        addresses: [VALID_ADDRESS],
+        subnets_exposed: 1,
+        coldkeys_resolved: 1,
         last_updated: "2026-03-14T12:00:00Z",
         change_24h_pct: 2.1,
         change_7d_pct: -0.5,

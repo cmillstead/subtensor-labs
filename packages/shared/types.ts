@@ -55,14 +55,14 @@ export interface DelegationDetail {
   take_rate: number;
 }
 
-/** Complete portfolio aggregation result */
+/** Complete portfolio aggregation result (matches Python PortfolioResponseSchema) */
 export interface PortfolioResult {
   total_value_tao: number;
-  free_balance_tao: number;
-  staked_tao: number;
-  alpha_value_tao: number;
+  total_staked_tao: number;
+  total_alpha_value_tao: number;
   positions: SubnetPosition[];
-  addresses: string[];
+  subnets_exposed: number;
+  coldkeys_resolved: number;
   last_updated: string;
   change_24h_pct: number | null;
   change_7d_pct: number | null;

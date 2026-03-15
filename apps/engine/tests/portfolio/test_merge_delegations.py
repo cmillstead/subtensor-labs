@@ -166,3 +166,23 @@ class TestMergeDelegations:
         result = _coldkey_portfolio(positions=[_pos(delegations=[])])
         merged = _merge_positions([result])
         assert len(merged[0].delegations) == 0
+
+    def test_appended_position_delegations_cleared_after_merge(self) -> None:
+        """Regression: appended positions must not retain delegations that
+        were already merged into the first position for that subnet."""
+        d1 = _delegation(hotkey=HOTKEY_1, name="V1")
+        d2 = _delegation(hotkey=HOTKEY_2, name="V2")
+        result1 = _coldkey_portfolio(
+            coldkey=COLDKEY_1,
+            positions=[_pos(netuid=1, hotkey=HOTKEY_1, delegations=[d1])],
+        )
+        result2 = _coldkey_portfolio(
+            coldkey=COLDKEY_2,
+            positions=[_pos(netuid=1, hotkey=HOTKEY_2, delegations=[d2])],
+        )
+        merged = _merge_positions([result1, result2])
+        assert len(merged) == 2
+        # First position has merged delegations
+        assert len(merged[0].delegations) == 2
+        # Second position must have empty delegations (merged into first)
+        assert len(merged[1].delegations) == 0
