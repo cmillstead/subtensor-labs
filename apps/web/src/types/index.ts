@@ -4,6 +4,7 @@ export type {
   SubnetPosition,
   DelegationDetail,
   PortfolioResult,
+  LabeledAddress,
   PortfolioHistoryPoint,
   PortfolioHistoryResult,
   TimeRange,
