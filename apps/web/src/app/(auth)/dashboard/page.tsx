@@ -13,6 +13,10 @@ import {
   SubnetPositionList,
   SubnetPositionListSkeleton,
 } from "@/components/portfolio/SubnetPositionList";
+import {
+  AllocationDonut,
+  AllocationDonutSkeleton,
+} from "@/components/portfolio/AllocationDonut";
 import { usePortfolio } from "@/hooks/usePortfolio";
 
 function makeQueryClient() {
@@ -66,6 +70,14 @@ function DashboardContent() {
       {isLoading && (
         <>
           <PortfolioSkeleton />
+          <section className="rounded-lg border border-border bg-surface p-5">
+            <div className="mb-3">
+              <h2 className="text-lg font-semibold text-text-primary">
+                Allocation
+              </h2>
+            </div>
+            <AllocationDonutSkeleton />
+          </section>
           <SubnetPositionListSkeleton />
         </>
       )}
@@ -93,17 +105,31 @@ function DashboardContent() {
           />
 
           {data.data.positions.length > 0 && (
-            <section>
-              <div className="mb-3 flex items-center gap-2">
-                <h2 className="text-lg font-semibold text-text-primary">
-                  Subnet Positions
-                </h2>
-                <span className="rounded-full bg-surface-elevated px-2 py-0.5 font-mono text-xs text-text-secondary">
-                  {data.data.positions.length}
-                </span>
-              </div>
-              <SubnetPositionList positions={data.data.positions} />
-            </section>
+            <>
+              <section className="rounded-lg border border-border bg-surface p-5">
+                <div className="mb-3">
+                  <h2 className="text-lg font-semibold text-text-primary">
+                    Allocation
+                  </h2>
+                </div>
+                <AllocationDonut
+                  positions={data.data.positions}
+                  totalValueTao={data.data.total_value_tao}
+                />
+              </section>
+
+              <section>
+                <div className="mb-3 flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-text-primary">
+                    Subnet Positions
+                  </h2>
+                  <span className="rounded-full bg-surface-elevated px-2 py-0.5 font-mono text-xs text-text-secondary">
+                    {data.data.positions.length}
+                  </span>
+                </div>
+                <SubnetPositionList positions={data.data.positions} />
+              </section>
+            </>
           )}
         </>
       )}
