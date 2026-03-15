@@ -146,6 +146,52 @@ export interface ScreenerResult {
   subnet_count: number;
 }
 
+/** Subnet detail — current snapshot with computed fields (matches Python SubnetDetailSchema) */
+export interface SubnetDetail {
+  netuid: number;
+  name: string | null;
+  miner_count: number;
+  validator_count: number;
+  registration_cost: number;
+  emission_share: number;
+  alpha_price: number;
+  alpha_market_cap: number;
+  tao_reserves: number;
+  alpha_reserves: number;
+  fill_rate: number;
+  owner_take_rate: number;
+  subnet_age_days: number;
+  description: string | null;
+}
+
+/** Daily history point for subnet time-series charts */
+export interface SubnetHistoryPoint {
+  time: string;
+  emission_share: number;
+  alpha_price: number;
+  miner_count: number;
+}
+
+/** Neuron (miner or validator) in a subnet */
+export interface SubnetNeuron {
+  uid: number;
+  hotkey: string;
+  coldkey: string;
+  stake: number;
+  incentive: number;
+  trust: number;
+  dividends: number;
+  is_active: boolean;
+}
+
+/** Complete subnet detail response (matches Python SubnetDetailResponseSchema) */
+export interface SubnetDetailResult {
+  detail: SubnetDetail;
+  history: SubnetHistoryPoint[];
+  miners: SubnetNeuron[];
+  validators: SubnetNeuron[];
+}
+
 /** Standard API response envelope from engine */
 export interface EngineResponse<T> {
   data: T;

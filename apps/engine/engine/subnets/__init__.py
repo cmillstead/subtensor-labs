@@ -1,0 +1,1 @@
+"""Subnet detail query engine."""
