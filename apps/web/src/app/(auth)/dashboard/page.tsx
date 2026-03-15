@@ -17,7 +17,14 @@ import {
   AllocationDonut,
   AllocationDonutSkeleton,
 } from "@/components/portfolio/AllocationDonut";
+import {
+  PortfolioValueChart,
+  PortfolioValueChartSkeleton,
+} from "@/components/portfolio/PortfolioValueChart";
+import { TimeRangeSelector } from "@/components/common/TimeRangeSelector";
 import { usePortfolio } from "@/hooks/usePortfolio";
+import { usePortfolioHistory } from "@/hooks/usePortfolioHistory";
+import type { TimeRange } from "@/types";
 
 function makeQueryClient() {
   return new QueryClient({
@@ -40,7 +47,9 @@ function getQueryClient() {
 
 function DashboardContent() {
   const [addresses, setAddresses] = useState<string[]>([]);
+  const [timeRange, setTimeRange] = useState<TimeRange>("30d");
   const { data, isLoading, isError, error } = usePortfolio(addresses);
+  const history = usePortfolioHistory(addresses, timeRange);
 
   return (
     <div className="space-y-6">
@@ -77,6 +86,14 @@ function DashboardContent() {
               </h2>
             </div>
             <AllocationDonutSkeleton />
+          </section>
+          <section className="rounded-lg border border-border bg-surface p-5">
+            <div className="mb-3">
+              <h2 className="text-lg font-semibold text-text-primary">
+                Portfolio Value
+              </h2>
+            </div>
+            <PortfolioValueChartSkeleton />
           </section>
           <SubnetPositionListSkeleton />
         </>
@@ -116,6 +133,27 @@ function DashboardContent() {
                   positions={data.data.positions}
                   totalValueTao={data.data.total_value_tao}
                 />
+              </section>
+
+              <section className="rounded-lg border border-border bg-surface p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-text-primary">
+                    Portfolio Value
+                  </h2>
+                  <TimeRangeSelector
+                    value={timeRange}
+                    onChange={setTimeRange}
+                  />
+                </div>
+                {history.isLoading ? (
+                  <PortfolioValueChartSkeleton />
+                ) : history.data?.data ? (
+                  <PortfolioValueChart
+                    points={history.data.data.points}
+                    dataStart={history.data.data.data_start}
+                    timeRange={timeRange}
+                  />
+                ) : null}
               </section>
 
               <section>
