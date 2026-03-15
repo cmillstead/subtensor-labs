@@ -10,6 +10,8 @@ export type {
   TimeRange,
   ScreenerFilter,
   ScreenerSortField,
+  ScreenerSubnet,
+  ScreenerResult,
   EngineResponse,
   ErrorResponse,
 } from "@subtensor-labs/shared";
