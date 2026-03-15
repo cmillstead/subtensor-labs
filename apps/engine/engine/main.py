@@ -25,7 +25,9 @@ from engine.schemas.errors import ENGINE_VERSION, ErrorDetail, ErrorResponseSche
 
 log = get_logger(__name__)
 
-scheduler = AsyncIOScheduler(timezone="UTC")
+# Created fresh in each lifespan invocation so it binds to the current event loop.
+# Exposed at module level for testability (tests can inspect it after lifespan starts).
+scheduler: AsyncIOScheduler | None = None
 
 
 class CatchAllMiddleware(BaseHTTPMiddleware):
@@ -62,8 +64,15 @@ class CatchAllMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown."""
+    global scheduler
+
     setup_logging(debug=settings.debug)
     log.info("engine_starting", host=settings.host, port=settings.port)
+
+    # Create a fresh scheduler each time so it binds to the current event loop.
+    # This prevents "Event loop is closed" errors when lifespan is re-entered
+    # (e.g. in tests that invoke lifespan multiple times with different loops).
+    scheduler = AsyncIOScheduler(timezone="UTC")
 
     # Register metagraph sync job
     scheduler.add_job(
