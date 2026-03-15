@@ -22,6 +22,7 @@ import {
   PortfolioValueChartSkeleton,
 } from "@/components/portfolio/PortfolioValueChart";
 import { TimeRangeSelector } from "@/components/common/TimeRangeSelector";
+import { ExportCsvButton } from "@/components/portfolio/ExportCsvButton";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { usePortfolioHistory } from "@/hooks/usePortfolioHistory";
 import { usePersistedAddresses } from "@/hooks/usePersistedAddresses";
@@ -78,6 +79,12 @@ function DashboardContent() {
         addresses={labeledAddresses}
         onAddressesChange={setLabeledAddresses}
       />
+
+      {hydrated && addressStrings.length > 0 && (
+        <div className="flex justify-end">
+          <ExportCsvButton data={data?.data} isLoading={isLoading} />
+        </div>
+      )}
 
       {hydrated && labeledAddresses.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
