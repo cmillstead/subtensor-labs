@@ -5,6 +5,7 @@ import { getQueryClient } from "@/lib/query-client";
 import { LastUpdated } from "@/components/common/LastUpdated";
 import { ScreenerTable } from "@/components/screener/ScreenerTable";
 import { FilterPanel } from "@/components/screener/FilterPanel";
+import { ScreenerCSVExport } from "@/components/screener/ScreenerCSVExport";
 import { useScreener } from "@/hooks/useScreener";
 import { useScreenerFilters } from "@/hooks/useScreenerFilters";
 
@@ -35,9 +36,15 @@ function ScreenerContent() {
             Browse and compare all active Bittensor subnets.
           </p>
         </div>
-        {data?.meta?.last_updated && (
-          <LastUpdated timestamp={data.meta.last_updated} />
-        )}
+        <div className="flex items-center gap-3">
+          <ScreenerCSVExport
+            subnets={hasActiveFilters ? filteredSubnets : subnets}
+            isLoading={isLoading}
+          />
+          {data?.meta?.last_updated && (
+            <LastUpdated timestamp={data.meta.last_updated} />
+          )}
+        </div>
       </header>
 
       {totalCount !== undefined && (
