@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // Page title set via companion layout.tsx (Client Components cannot export metadata)
@@ -24,6 +24,7 @@ import {
 import { TimeRangeSelector } from "@/components/common/TimeRangeSelector";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { usePortfolioHistory } from "@/hooks/usePortfolioHistory";
+import { usePersistedAddresses } from "@/hooks/usePersistedAddresses";
 import type { TimeRange } from "@/types";
 
 function makeQueryClient() {
@@ -46,10 +47,21 @@ function getQueryClient() {
 }
 
 function DashboardContent() {
-  const [addresses, setAddresses] = useState<string[]>([]);
+  const {
+    addresses: labeledAddresses,
+    setAddresses: setLabeledAddresses,
+    hydrated,
+  } = usePersistedAddresses();
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
-  const { data, isLoading, isError, error } = usePortfolio(addresses);
-  const history = usePortfolioHistory(addresses, timeRange);
+
+  // Extract plain address strings for API hooks
+  const addressStrings = useMemo(
+    () => labeledAddresses.map((a) => a.address),
+    [labeledAddresses],
+  );
+
+  const { data, isLoading, isError, error } = usePortfolio(addressStrings);
+  const history = usePortfolioHistory(addressStrings, timeRange);
 
   return (
     <div className="space-y-6">
@@ -63,11 +75,11 @@ function DashboardContent() {
       </header>
 
       <AddressManager
-        addresses={addresses}
-        onAddressesChange={setAddresses}
+        addresses={labeledAddresses}
+        onAddressesChange={setLabeledAddresses}
       />
 
-      {addresses.length === 0 && (
+      {hydrated && labeledAddresses.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
           <p className="text-lg text-text-secondary">No addresses added</p>
           <p className="mt-1 text-sm text-text-muted">

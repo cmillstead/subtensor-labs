@@ -68,6 +68,12 @@ export interface PortfolioResult {
   change_7d_pct: number | null;
 }
 
+/** A coldkey address with an optional user-assigned label */
+export interface LabeledAddress {
+  address: string;
+  label: string;
+}
+
 /** Time range options for historical charts */
 export type TimeRange = "7d" | "30d" | "90d";
 
