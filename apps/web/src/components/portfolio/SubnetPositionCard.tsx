@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, truncateAddress } from "@/lib/utils";
 import { TaoAmount } from "@/components/common/TaoAmount";
 import type { SubnetPosition } from "@/types";
 
@@ -12,11 +12,6 @@ interface SubnetPositionCardProps {
 
 function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
-}
-
-function truncateHotkey(hotkey: string): string {
-  if (hotkey.length <= 12) return hotkey;
-  return `${hotkey.slice(0, 6)}…${hotkey.slice(-6)}`;
 }
 
 function SubnetPositionSkeleton() {
@@ -191,7 +186,7 @@ function SubnetPositionCard({ position, className }: SubnetPositionCardProps) {
                       >
                         <td className="py-1.5">
                           <span className="text-text-primary">
-                            {d.validator_name ?? truncateHotkey(d.validator_hotkey)}
+                            {d.validator_name ?? truncateAddress(d.validator_hotkey)}
                           </span>
                         </td>
                         <td className="py-1.5 text-right">

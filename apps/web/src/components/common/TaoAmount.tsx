@@ -48,6 +48,8 @@ interface TaoAmountProps {
   className?: string;
 }
 
+export { formatTao };
+
 export function TaoAmount({
   value,
   size = "medium",

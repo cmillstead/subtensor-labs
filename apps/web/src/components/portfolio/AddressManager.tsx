@@ -1,18 +1,13 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { cn } from "@/lib/utils";
+import { cn, truncateAddress } from "@/lib/utils";
 import { X, Pencil, Check } from "lucide-react";
 import type { LabeledAddress } from "@/types";
 
 const MAX_ADDRESSES = 20;
 // Base58 charset (no 0, O, I, l) — matches backend validation
 const SS58_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{46,48}$/;
-
-function truncateAddress(address: string): string {
-  if (address.length <= 12) return address;
-  return `${address.slice(0, 6)}...${address.slice(-6)}`;
-}
 
 interface AddressManagerProps {
   addresses: LabeledAddress[];

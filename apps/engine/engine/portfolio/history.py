@@ -25,7 +25,7 @@ _BUCKET_CONFIG: dict[str, tuple[str, int]] = {
 
 def _cache_key(coldkey_addresses: list[str], time_range: str) -> str:
     """Build a Redis cache key for portfolio history."""
-    addr_hash = hashlib.md5(",".join(sorted(coldkey_addresses)).encode()).hexdigest()  # noqa: S324
+    addr_hash = hashlib.sha256(",".join(sorted(coldkey_addresses)).encode()).hexdigest()
     return f"portfolio_history:{addr_hash}:{time_range}"
 
 
