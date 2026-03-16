@@ -17,12 +17,18 @@ function truncateAddress(address: string): string {
 interface AddressManagerProps {
   addresses: LabeledAddress[];
   onAddressesChange: (addresses: LabeledAddress[]) => void;
+  onAdd?: (address: string, label: string) => void | Promise<void>;
+  onRemove?: (address: string) => void | Promise<void>;
+  onUpdateLabel?: (address: string, newLabel: string) => void | Promise<void>;
   className?: string;
 }
 
 export function AddressManager({
   addresses,
   onAddressesChange,
+  onAdd,
+  onRemove,
+  onUpdateLabel,
   className,
 }: AddressManagerProps) {
   const [inputValue, setInputValue] = useState("");
@@ -30,6 +36,7 @@ export function AddressManager({
   const [error, setError] = useState<string | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editLabelValue, setEditLabelValue] = useState("");
+  const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
 
   const handleAdd = useCallback(() => {
     const trimmed = inputValue.trim();
@@ -54,20 +61,29 @@ export function AddressManager({
       return;
     }
 
-    onAddressesChange([
-      ...addresses,
-      { address: trimmed, label: labelValue.trim() },
-    ]);
+    if (onAdd) {
+      onAdd(trimmed, labelValue.trim());
+    } else {
+      onAddressesChange([
+        ...addresses,
+        { address: trimmed, label: labelValue.trim() },
+      ]);
+    }
     setInputValue("");
     setLabelValue("");
     setError(null);
-  }, [inputValue, labelValue, addresses, onAddressesChange]);
+  }, [inputValue, labelValue, addresses, onAddressesChange, onAdd]);
 
   const handleRemove = useCallback(
     (address: string) => {
-      onAddressesChange(addresses.filter((a) => a.address !== address));
+      if (onRemove) {
+        onRemove(address);
+      } else {
+        onAddressesChange(addresses.filter((a) => a.address !== address));
+      }
+      setConfirmingRemove(null);
     },
-    [addresses, onAddressesChange],
+    [addresses, onAddressesChange, onRemove],
   );
 
   const handleKeyDown = useCallback(
@@ -90,13 +106,17 @@ export function AddressManager({
 
   const saveEdit = useCallback(() => {
     if (editingIndex === null) return;
-    const updated = addresses.map((a, i) =>
-      i === editingIndex ? { ...a, label: editLabelValue.trim() } : a,
-    );
-    onAddressesChange(updated);
+    if (onUpdateLabel) {
+      onUpdateLabel(addresses[editingIndex].address, editLabelValue.trim());
+    } else {
+      const updated = addresses.map((a, i) =>
+        i === editingIndex ? { ...a, label: editLabelValue.trim() } : a,
+      );
+      onAddressesChange(updated);
+    }
     setEditingIndex(null);
     setEditLabelValue("");
-  }, [editingIndex, editLabelValue, addresses, onAddressesChange]);
+  }, [editingIndex, editLabelValue, addresses, onAddressesChange, onUpdateLabel]);
 
   const editInputRef = useRef<HTMLInputElement>(null);
 
@@ -241,17 +261,44 @@ export function AddressManager({
                   </>
                 )}
               </div>
-              <button
-                onClick={() => handleRemove(entry.address)}
-                aria-label={`Remove address ${truncateAddress(entry.address)}`}
-                className={cn(
-                  "flex-shrink-0 rounded p-1 text-text-muted",
-                  "hover:text-error hover:bg-elevated transition-colors",
-                  "min-h-[44px] min-w-[44px] flex items-center justify-center",
-                )}
-              >
-                <X size={14} />
-              </button>
+              {confirmingRemove === entry.address ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-text-muted mr-1">Remove?</span>
+                  <button
+                    onClick={() => handleRemove(entry.address)}
+                    aria-label="Confirm remove address"
+                    className={cn(
+                      "rounded px-2 py-1 text-xs font-medium",
+                      "border border-error text-error",
+                      "hover:bg-error/10 transition-colors",
+                    )}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => setConfirmingRemove(null)}
+                    aria-label="Cancel remove"
+                    className={cn(
+                      "rounded px-2 py-1 text-xs font-medium text-text-muted",
+                      "hover:text-text-primary transition-colors",
+                    )}
+                  >
+                    No
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmingRemove(entry.address)}
+                  aria-label={`Remove address ${truncateAddress(entry.address)}`}
+                  className={cn(
+                    "flex-shrink-0 rounded p-1 text-text-muted",
+                    "hover:text-error hover:bg-elevated transition-colors",
+                    "min-h-[44px] min-w-[44px] flex items-center justify-center",
+                  )}
+                >
+                  <X size={14} />
+                </button>
+              )}
             </li>
           ))}
         </ul>

@@ -103,7 +103,7 @@ describe("AddressManager", () => {
     expect(screen.getByText(VALID_ADDRESS)).toBeInTheDocument();
   });
 
-  it("removes an address when X is clicked", () => {
+  it("shows confirmation before removing an address", () => {
     const onChange = vi.fn();
     render(
       <AddressManager
@@ -117,7 +117,46 @@ describe("AddressManager", () => {
     });
     fireEvent.click(removeButtons[0]);
 
+    // Should show confirmation, not remove yet
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByText(/remove\?/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /confirm remove/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /cancel remove/i })).toBeInTheDocument();
+  });
+
+  it("removes an address after confirming", () => {
+    const onChange = vi.fn();
+    render(
+      <AddressManager
+        addresses={[labeled(VALID_ADDRESS), labeled(VALID_ADDRESS_2)]}
+        onAddressesChange={onChange}
+      />,
+    );
+
+    const removeButtons = screen.getAllByRole("button", {
+      name: /remove address/i,
+    });
+    fireEvent.click(removeButtons[0]);
+    fireEvent.click(screen.getByRole("button", { name: /confirm remove/i }));
+
     expect(onChange).toHaveBeenCalledWith([labeled(VALID_ADDRESS_2)]);
+  });
+
+  it("cancels remove when No is clicked", () => {
+    const onChange = vi.fn();
+    render(
+      <AddressManager
+        addresses={[labeled(VALID_ADDRESS)]}
+        onAddressesChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /remove address/i }));
+    fireEvent.click(screen.getByRole("button", { name: /cancel remove/i }));
+
+    expect(onChange).not.toHaveBeenCalled();
+    // Confirmation should be dismissed
+    expect(screen.queryByText(/remove\?/i)).not.toBeInTheDocument();
   });
 
   it("adds address on Enter key", () => {
