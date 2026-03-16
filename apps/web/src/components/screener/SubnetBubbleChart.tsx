@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useRouter } from "next/navigation";
-import type { ScreenerSubnet } from "@shared/types";
+import type { ScreenerSubnet } from "@/types";
 
 interface BubbleDataPoint {
   netuid: number;

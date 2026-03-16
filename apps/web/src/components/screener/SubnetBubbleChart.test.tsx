@@ -6,7 +6,7 @@ import {
   SubnetBubbleChartSkeleton,
   prepareBubbleData,
 } from "./SubnetBubbleChart";
-import type { ScreenerSubnet } from "@shared/types";
+import type { ScreenerSubnet } from "@/types";
 
 // Mock ResizeObserver for Recharts ResponsiveContainer
 class ResizeObserverMock {
