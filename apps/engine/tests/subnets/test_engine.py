@@ -1,9 +1,10 @@
-"""Tests for subnet detail query engine."""
+"""Tests for subnet detail engine — pure unit tests only.
+
+Integration tests for get_subnet_detail and _query_subnet_detail
+are in tests/api_integration/test_subnets_api.py (real DB + Redis).
+"""
 
 import json
-from unittest.mock import AsyncMock, patch
-
-import pytest
 
 from engine.schemas.subnet import (
     SubnetDetailResponseSchema,
@@ -11,10 +12,10 @@ from engine.schemas.subnet import (
     SubnetHistoryPointSchema,
     SubnetNeuronSchema,
 )
-from engine.subnets.engine import VALID_TIME_RANGES, _cache_key, get_subnet_detail
+from engine.subnets.engine import VALID_TIME_RANGES, _cache_key
 
 
-def _mock_detail_response() -> SubnetDetailResponseSchema:
+def _sample_response() -> SubnetDetailResponseSchema:
     return SubnetDetailResponseSchema(
         detail=SubnetDetailSchema(
             netuid=1,
@@ -38,12 +39,6 @@ def _mock_detail_response() -> SubnetDetailResponseSchema:
                 emission_share=0.048,
                 alpha_price=0.11,
                 miner_count=98,
-            ),
-            SubnetHistoryPointSchema(
-                time="2026-03-11T00:00:00+00:00",
-                emission_share=0.05,
-                alpha_price=0.12,
-                miner_count=100,
             ),
         ],
         miners=[
@@ -73,100 +68,6 @@ def _mock_detail_response() -> SubnetDetailResponseSchema:
     )
 
 
-class TestGetSubnetDetail:
-    @pytest.mark.anyio
-    async def test_returns_cached_data_on_cache_hit(self) -> None:
-        mock_response = _mock_detail_response()
-        cached_json = mock_response.model_dump_json()
-
-        with patch(
-            "engine.subnets.engine.cache_get",
-            new_callable=AsyncMock,
-            return_value=cached_json,
-        ):
-            result, cache_hit = await get_subnet_detail(1, "30d")
-
-        assert cache_hit is True
-        assert result.detail.netuid == 1
-        assert result.detail.name == "Text Prompting"
-
-    @pytest.mark.anyio
-    async def test_queries_db_on_cache_miss(self) -> None:
-        mock_response = _mock_detail_response()
-
-        with (
-            patch(
-                "engine.subnets.engine.cache_get",
-                new_callable=AsyncMock,
-                return_value=None,
-            ),
-            patch(
-                "engine.subnets.engine._query_subnet_detail",
-                new_callable=AsyncMock,
-                return_value=mock_response,
-            ),
-            patch(
-                "engine.subnets.engine.cache_set",
-                new_callable=AsyncMock,
-            ) as mock_cache_set,
-        ):
-            result, cache_hit = await get_subnet_detail(1, "30d")
-
-        assert cache_hit is False
-        assert result.detail.netuid == 1
-        mock_cache_set.assert_called_once()
-
-    @pytest.mark.anyio
-    async def test_invalid_time_range_defaults_to_30d(self) -> None:
-        mock_response = _mock_detail_response()
-        cached_json = mock_response.model_dump_json()
-
-        with patch(
-            "engine.subnets.engine.cache_get",
-            new_callable=AsyncMock,
-            return_value=cached_json,
-        ) as mock_get:
-            await get_subnet_detail(1, "invalid")
-
-        # Should have used 30d default in cache key
-        mock_get.assert_called_once_with(_cache_key(1, "30d"))
-
-    @pytest.mark.anyio
-    async def test_history_sorted_chronologically(self) -> None:
-        mock_response = _mock_detail_response()
-        cached_json = mock_response.model_dump_json()
-
-        with patch(
-            "engine.subnets.engine.cache_get",
-            new_callable=AsyncMock,
-            return_value=cached_json,
-        ):
-            result, _ = await get_subnet_detail(1, "30d")
-
-        times = [h.time for h in result.history]
-        assert times == sorted(times)
-
-    @pytest.mark.anyio
-    async def test_miners_and_validators_separated(self) -> None:
-        mock_response = _mock_detail_response()
-        cached_json = mock_response.model_dump_json()
-
-        with patch(
-            "engine.subnets.engine.cache_get",
-            new_callable=AsyncMock,
-            return_value=cached_json,
-        ):
-            result, _ = await get_subnet_detail(1, "30d")
-
-        # Miners have dividends == 0
-        for miner in result.miners:
-            assert miner.dividends == 0.0
-
-        # Validators have dividends > 0
-        for validator in result.validators:
-            assert validator.dividends > 0
-
-
 class TestValidTimeRanges:
     def test_valid_ranges_defined(self) -> None:
         assert "7d" in VALID_TIME_RANGES
@@ -185,18 +86,18 @@ class TestCacheKey:
 
 class TestSubnetSchemas:
     def test_detail_schema_serialization(self) -> None:
-        detail = _mock_detail_response().detail
+        detail = _sample_response().detail
         data = detail.model_dump()
         assert data["netuid"] == 1
         assert data["subnet_age_days"] == 120
         assert data["description"] is None
 
     def test_response_schema_json_roundtrip(self) -> None:
-        response = _mock_detail_response()
+        response = _sample_response()
         json_str = response.model_dump_json()
         parsed = json.loads(json_str)
         assert parsed["detail"]["netuid"] == 1
-        assert len(parsed["history"]) == 2
+        assert len(parsed["history"]) == 1
         assert len(parsed["miners"]) == 1
         assert len(parsed["validators"]) == 1
 
