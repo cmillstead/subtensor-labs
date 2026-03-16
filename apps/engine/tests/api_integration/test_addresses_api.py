@@ -1,98 +1,18 @@
 """Tests for user address CRUD endpoints — real database, no mocks."""
 
-import asyncio
-import os
-
 import pytest
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# Set debug mode before importing app — but DON'T change ENGINE_DATABASE_URL
-# globally, as that would affect other test modules in the same pytest session.
-# Instead, we create our own engine pointing at the test DB.
-os.environ.setdefault("ENGINE_DEBUG", "true")
+from engine.models.user import User
 
-import engine.models  # noqa: E402, F401
-from engine.core.database import Base, get_session  # noqa: E402
-from engine.main import app  # noqa: E402
-from engine.models.user import User  # noqa: E402
-
-TEST_DB_URL = "postgresql+asyncpg://tao:tao@localhost:5432/subtensor_labs_test"
 VALID_ADDRESS_1 = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
-
-
-# -- Module-level table setup (sync, runs once) --
-
-
-def _run(coro):
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
-
-async def _init_tables():
-    eng = create_async_engine(TEST_DB_URL)
-    async with eng.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-    await eng.dispose()
-
-
-async def _drop_tables():
-    eng = create_async_engine(TEST_DB_URL)
-    async with eng.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await eng.dispose()
-
-
-_run(_init_tables())
-
-
-def teardown_module():
-    _run(_drop_tables())
-
-
-# -- Per-test fixtures --
-
-
-@pytest.fixture
-async def db_engine():
-    """Fresh engine per test — avoids connection conflicts."""
-    eng = create_async_engine(TEST_DB_URL, pool_size=5, max_overflow=0)
-    yield eng
-    await eng.dispose()
-
-
-@pytest.fixture(autouse=True)
-async def _override_and_clean(db_engine):
-    """Override app session, clean tables after test."""
-
-    async def _test_session():
-        async with AsyncSession(db_engine, expire_on_commit=False) as session:
-            yield session
-
-    app.dependency_overrides[get_session] = _test_session
-    yield
-    app.dependency_overrides.clear()
-
-    async with db_engine.begin() as conn:
-        await conn.execute(text("DELETE FROM user_addresses"))
-        await conn.execute(text("DELETE FROM password_reset_tokens"))
-        await conn.execute(text("DELETE FROM users"))
-
-
-@pytest.fixture
-async def client():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
 
 
 @pytest.fixture
 async def user_id(db_engine) -> int:
+    """Create a test user and return its ID."""
     async with AsyncSession(db_engine, expire_on_commit=False) as session:
         u = User(email="test@example.com", password_hash="$argon2id$fakehash")
         session.add(u)
@@ -162,11 +82,10 @@ class TestCreateAddress:
         assert res.json()["error"]["type"] == "duplicate_address"
 
     async def test_create_exceeds_limit(self, client: AsyncClient, user_id: int) -> None:
-        # Generate 20 unique valid SS58 addresses (46 chars each, all base58)
         base58_chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
         for i in range(20):
-            c = base58_chars[i + 1]  # vary one char to make unique
-            addr = f"5{c}{'a' * 44}"  # 46 chars total: "5" + char + 44 * "a"
+            c = base58_chars[i + 1]
+            addr = f"5{c}{'a' * 44}"
             r = await client.post(
                 f"/engine/users/{user_id}/addresses",
                 json={"coldkey_address": addr},
