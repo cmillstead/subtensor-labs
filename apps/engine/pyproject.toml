@@ -22,6 +22,7 @@ dependencies = [
     "structlog~=24.4.0",
     "httpx~=0.28.0",
     "apscheduler~=3.10.0",
+    "resend~=2.0.0",
 ]
 
 [dependency-groups]
@@ -50,7 +51,7 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["bittensor.*", "apscheduler.*", "argon2.*"]
+module = ["bittensor.*", "apscheduler.*", "argon2.*", "resend.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     # Security
     address_encryption_key: str = ""
 
+    # Email (Resend)
+    resend_api_key: str = ""
+    resend_from_email: str = "Subtensor Labs <noreply@subtensorlabs.com>"
+    password_reset_base_url: str = "http://localhost:3000"
+
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
 
@@ -61,6 +66,11 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "ENGINE_ADDRESS_ENCRYPTION_KEY must be set in production. "
                     "Set ENGINE_DEBUG=true for local development without encryption."
+                )
+            if not self.resend_api_key:
+                raise ValueError(
+                    "ENGINE_RESEND_API_KEY must be set in production. "
+                    "Set ENGINE_DEBUG=true for local development without email sending."
                 )
             if not self.taostats_api_key:
                 raise ValueError(

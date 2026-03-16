@@ -2016,6 +2016,19 @@ wheels = [
 ]
 
 [[package]]
+name = "resend"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/27/62/0e1d85c902f013e7a505d21f799011420dd455d8593ff9fc80a10d6fb180/resend-2.0.0.tar.gz", hash = "sha256:b8c3da84698d7b1f5a869cb63a06e022e3910a4980640183cc54da46c77e0c53", size = 10617, upload-time = "2024-05-27T17:48:58.584Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/53/0576bceaedeb94850dc5a9507685e8abe2ebd763061961adc46267f9563f/resend-2.0.0-py2.py3-none-any.whl", hash = "sha256:5bae8db4dfd6b246377bd1f934e64b4ad8b83f7af3ace4c7d5d76eec56550e2b", size = 16078, upload-time = "2024-05-27T17:48:56.811Z" },
+]
+
+[[package]]
 name = "retry"
 version = "0.9.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2330,6 +2343,7 @@ dependencies = [
     { name = "pydantic", extra = ["email"] },
     { name = "pydantic-settings" },
     { name = "redis", extra = ["hiredis"] },
+    { name = "resend" },
     { name = "scipy" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "structlog" },
@@ -2362,6 +2376,7 @@ requires-dist = [
     { name = "pydantic", extras = ["email"], specifier = "~=2.10.0" },
     { name = "pydantic-settings", specifier = "~=2.7.0" },
     { name = "redis", extras = ["hiredis"], specifier = "~=5.2.0" },
+    { name = "resend", specifier = "~=2.0.0" },
     { name = "scipy", specifier = "~=1.15.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = "~=2.0.36" },
     { name = "structlog", specifier = "~=24.4.0" },
