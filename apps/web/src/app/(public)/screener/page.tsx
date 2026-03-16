@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { getQueryClient } from "@/lib/query-client";
@@ -10,15 +10,27 @@ import { ScreenerTable } from "@/components/screener/ScreenerTable";
 import { FilterPanel } from "@/components/screener/FilterPanel";
 import { ScreenerCSVExport } from "@/components/screener/ScreenerCSVExport";
 import { SubnetBubbleChart } from "@/components/screener/SubnetBubbleChart";
+import { SubnetCompare } from "@/components/screener/SubnetCompare";
 import { ViewToggle } from "@/components/screener/ViewToggle";
 import type { ScreenerView } from "@/components/screener/ViewToggle";
 import { useScreener } from "@/hooks/useScreener";
 import { useScreenerFilters } from "@/hooks/useScreenerFilters";
+import { Button } from "@/components/ui/button";
 
 function ScreenerContent() {
   const { data: session } = useSession();
   const isPremium = session?.user?.premiumStatus === "premium";
   const [view, setView] = useState<ScreenerView>("table");
+  const [selectedNetuids, setSelectedNetuids] = useState<Set<number>>(new Set());
+  const [showCompare, setShowCompare] = useState(false);
+
+  const handleCompare = useCallback(() => {
+    setShowCompare(true);
+  }, []);
+
+  const handleCloseCompare = useCallback(() => {
+    setShowCompare(false);
+  }, []);
 
   const { data, isLoading, isError, error, refetch } = useScreener();
   const subnets = data?.data?.subnets;
@@ -35,6 +47,12 @@ function ScreenerContent() {
   const filteredCount = filteredSubnets.length;
   const hasActiveFilters = activeFilterCount > 0;
   const displaySubnets = hasActiveFilters ? filteredSubnets : subnets;
+
+  // Count selected netuids that are actually visible in current display set
+  const visibleSelectedCount = displaySubnets
+    ? displaySubnets.filter((s) => selectedNetuids.has(s.netuid)).length
+    : 0;
+  const canCompare = visibleSelectedCount >= 2 && visibleSelectedCount <= 3;
 
   return (
     <div className="space-y-6">
@@ -69,42 +87,64 @@ function ScreenerContent() {
         </p>
       )}
 
-      <div className="flex gap-6">
-        <FilterPanel
-          filters={filters}
-          onFilterChange={setFilters}
-          onReset={resetFilters}
-          activeFilterCount={activeFilterCount}
-          subnetData={subnets}
+      {showCompare && displaySubnets ? (
+        <SubnetCompare
+          subnets={displaySubnets.filter((s) => selectedNetuids.has(s.netuid))}
+          onClose={handleCloseCompare}
         />
+      ) : (
+        <div className="flex gap-6">
+          <FilterPanel
+            filters={filters}
+            onFilterChange={setFilters}
+            onReset={resetFilters}
+            activeFilterCount={activeFilterCount}
+            subnetData={subnets}
+          />
 
-        <div className="min-w-0 flex-1">
-          {view === "table" ? (
-            <ScreenerTable
-              subnets={displaySubnets}
-              isLoading={isLoading}
-              isError={isError}
-              error={error}
-              onRetry={() => refetch()}
-            />
-          ) : isPremium ? (
-            <SubnetBubbleChart
-              subnets={displaySubnets}
-              isLoading={isLoading}
-              isError={isError}
-              error={error}
-              onRetry={() => refetch()}
-            />
-          ) : (
-            <PremiumGate featureName="Bubble Chart">
+          <div className="min-w-0 flex-1">
+            {view === "table" ? (
+              <>
+                <ScreenerTable
+                  subnets={displaySubnets}
+                  isLoading={isLoading}
+                  isError={isError}
+                  error={error}
+                  onRetry={() => refetch()}
+                  selectedNetuids={selectedNetuids}
+                  onSelectionChange={setSelectedNetuids}
+                />
+                {canCompare && (
+                  <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+                    <Button
+                      variant="outline"
+                      className="border-violet-500 text-violet-400 hover:bg-violet-500/10"
+                      onClick={handleCompare}
+                    >
+                      Compare ({visibleSelectedCount})
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : isPremium ? (
               <SubnetBubbleChart
                 subnets={displaySubnets}
                 isLoading={isLoading}
+                isError={isError}
+                error={error}
+                onRetry={() => refetch()}
               />
-            </PremiumGate>
-          )}
+            ) : (
+              <PremiumGate featureName="Bubble Chart">
+                <SubnetBubbleChart
+                  subnets={displaySubnets}
+                  isLoading={isLoading}
+                />
+              </PremiumGate>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

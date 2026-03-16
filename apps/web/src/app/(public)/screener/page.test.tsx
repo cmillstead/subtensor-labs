@@ -106,9 +106,26 @@ vi.mock("recharts", () => ({
   ZAxis: () => <div data-testid="z-axis" />,
   CartesianGrid: () => <div data-testid="cartesian-grid" />,
   Tooltip: () => <div data-testid="tooltip" />,
+  Legend: () => <div data-testid="legend" />,
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="responsive-container">{children}</div>
   ),
+}));
+
+// Mock useSubnet for CompareChart
+vi.mock("@/hooks/useSubnet", () => ({
+  useSubnet: vi.fn(() => ({
+    data: {
+      data: {
+        history: [
+          { time: "2026-03-01", emission_share: 0.05, alpha_price: 0.12, miner_count: 100 },
+          { time: "2026-03-02", emission_share: 0.06, alpha_price: 0.13, miner_count: 101 },
+        ],
+      },
+    },
+    isLoading: false,
+    isError: false,
+  })),
 }));
 
 // Mock ResizeObserver
@@ -257,5 +274,74 @@ describe("ScreenerPage", () => {
 
     await user.click(screen.getByText("Table"));
     expect(screen.getByText("Showing 2 subnets")).toBeInTheDocument();
+  });
+
+  // Compare mode integration tests
+  it("renders checkboxes on each subnet row in table view", () => {
+    render(<ScreenerPage />);
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes.length).toBe(2); // one per subnet
+  });
+
+  it("does not show Compare button when fewer than 2 subnets selected", async () => {
+    const user = userEvent.setup();
+    render(<ScreenerPage />);
+
+    // Select 1 subnet
+    await user.click(screen.getByLabelText("Select SN1 for comparison"));
+    expect(screen.queryByRole("button", { name: /Compare/ })).not.toBeInTheDocument();
+  });
+
+  it("shows Compare button when 2 subnets selected", async () => {
+    const user = userEvent.setup();
+    render(<ScreenerPage />);
+
+    await user.click(screen.getByLabelText("Select SN1 for comparison"));
+    await user.click(screen.getByLabelText("Select SN2 for comparison"));
+
+    expect(screen.getByRole("button", { name: /Compare/ })).toBeInTheDocument();
+  });
+
+  it("opens compare view and returns to screener", async () => {
+    const user = userEvent.setup();
+    render(<ScreenerPage />);
+
+    // Select 2 subnets
+    await user.click(screen.getByLabelText("Select SN1 for comparison"));
+    await user.click(screen.getByLabelText("Select SN2 for comparison"));
+
+    // Click Compare
+    await user.click(screen.getByRole("button", { name: /Compare/ }));
+
+    // Compare view shows
+    expect(screen.getByText("Subnet Comparison")).toBeInTheDocument();
+    // FilterPanel should be gone (replaced by compare view)
+    expect(screen.queryByText("Basic Filters")).not.toBeInTheDocument();
+
+    // Click Back to Screener
+    await user.click(screen.getByRole("button", { name: "Back to Screener" }));
+
+    // Screener table/filters are back
+    expect(screen.getByText("Basic Filters")).toBeInTheDocument();
+    expect(screen.queryByText("Subnet Comparison")).not.toBeInTheDocument();
+  });
+
+  it("preserves filter state when entering and exiting compare mode", async () => {
+    const user = userEvent.setup();
+    render(<ScreenerPage />);
+
+    // Filters should be visible
+    expect(screen.getByText("Basic Filters")).toBeInTheDocument();
+
+    // Select 2 subnets and compare
+    await user.click(screen.getByLabelText("Select SN1 for comparison"));
+    await user.click(screen.getByLabelText("Select SN2 for comparison"));
+    await user.click(screen.getByRole("button", { name: /Compare/ }));
+
+    // Return to screener
+    await user.click(screen.getByRole("button", { name: "Back to Screener" }));
+
+    // Filters still visible
+    expect(screen.getByText("Basic Filters")).toBeInTheDocument();
   });
 });
