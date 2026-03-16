@@ -12,6 +12,19 @@ vi.mock("next-auth/react", () => ({
   useSession: () => mockUseSession(),
 }));
 
+// Mock useSavedScreeners (used by SavedScreenerPanel)
+vi.mock("@/hooks/useSavedScreeners", () => ({
+  useSavedScreeners: () => ({
+    savedScreeners: [],
+    isLoading: false,
+    saveScreener: vi.fn(),
+    updateScreener: vi.fn(),
+    deleteScreener: vi.fn(),
+    isSaving: false,
+    isDeleting: false,
+  }),
+}));
+
 const MOCK_SUBNETS: ScreenerSubnet[] = [
   {
     netuid: 1,
@@ -191,8 +204,9 @@ describe("FilterPanel", () => {
 
       render(<FilterPanel {...defaultProps} />);
 
-      // PremiumGate shows upgrade overlay for free users
-      expect(screen.getByText("Upgrade to Premium")).toBeInTheDocument();
+      // PremiumGate shows upgrade overlay for free users (may appear multiple times: advanced filters + saved screeners)
+      const upgradeLinks = screen.getAllByText("Upgrade to Premium");
+      expect(upgradeLinks.length).toBeGreaterThanOrEqual(1);
     });
 
     it("advanced filters are fully functional for premium users", () => {
@@ -222,7 +236,27 @@ describe("FilterPanel", () => {
 
       render(<FilterPanel {...defaultProps} />);
 
-      expect(screen.getByText("Upgrade to Premium")).toBeInTheDocument();
+      // Advanced filters PremiumGate shows upgrade overlay
+      const upgradeLinks = screen.getAllByText("Upgrade to Premium");
+      expect(upgradeLinks.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe("saved screener panel integration", () => {
+    it("renders SavedScreenerPanel within FilterPanel for premium users", () => {
+      render(<FilterPanel {...defaultProps} />);
+      expect(screen.getByText("Saved Screeners")).toBeInTheDocument();
+    });
+
+    it("renders SavedScreenerPanel sign-in prompt for unauthenticated users", () => {
+      mockUseSession.mockReturnValue({
+        data: null,
+        status: "unauthenticated",
+      });
+      render(<FilterPanel {...defaultProps} />);
+      expect(
+        screen.getByText("Sign in to save your screener configurations."),
+      ).toBeInTheDocument();
     });
   });
 

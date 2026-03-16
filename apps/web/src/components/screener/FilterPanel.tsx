@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { ScreenerFilter, ScreenerSubnet } from "@/types";
 import { RangeInput } from "./RangeInput";
+import { SavedScreenerPanel } from "./SavedScreenerPanel";
 import { Button } from "@/components/ui/button";
 import { PremiumGate } from "@/components/common/PremiumGate";
 import { PremiumBadge } from "@/components/common/PremiumBadge";
@@ -328,6 +329,12 @@ export function FilterPanel({
           Reset Filters
         </Button>
       )}
+
+      <SavedScreenerPanel
+        filters={filters}
+        onLoadScreener={onFilterChange}
+        activeFilterCount={activeFilterCount}
+      />
     </div>
   );
 

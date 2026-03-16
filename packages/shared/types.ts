@@ -238,3 +238,12 @@ export interface ErrorResponse {
     code: number;
   };
 }
+
+/** Saved screener configuration (matches Python SavedScreenerResponseSchema) */
+export interface SavedScreener {
+  id: number;
+  name: string;
+  filters_json: ScreenerFilter;
+  created_at: string;
+  updated_at: string;
+}
