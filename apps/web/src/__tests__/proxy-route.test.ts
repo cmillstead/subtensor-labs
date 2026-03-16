@@ -16,7 +16,6 @@ describe("isAllowed", () => {
 
   it("rejects paths not in the allowlist", () => {
     expect(isAllowed("/engine/admin")).toBe(false);
-    expect(isAllowed("/engine/users")).toBe(false);
     expect(isAllowed("/engine/internal")).toBe(false);
     expect(isAllowed("/")).toBe(false);
     expect(isAllowed("")).toBe(false);

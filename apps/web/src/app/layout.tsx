@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
+import { AuthNav } from "@/components/common/AuthNav";
+import { Providers } from "@/components/common/Providers";
 import "./globals.css";
 
 const inter = Inter({
@@ -37,14 +39,16 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        <a href="#main" className="skip-link">
-          Skip to main content
-        </a>
-        <TickerBar />
-        <Navigation />
-        <main id="main" tabIndex={-1} className="mx-auto max-w-[1440px] px-6 py-6 outline-none">
-          {children}
-        </main>
+        <Providers>
+          <a href="#main" className="skip-link">
+            Skip to main content
+          </a>
+          <TickerBar />
+          <Navigation />
+          <main id="main" tabIndex={-1} className="mx-auto max-w-[1440px] px-6 py-6 outline-none">
+            {children}
+          </main>
+        </Providers>
       </body>
     </html>
   );
@@ -121,12 +125,7 @@ function Navigation() {
           </Link>
         </li>
       </ul>
-      <Link
-        href="/auth/login"
-        className="text-sm text-text-muted hover:text-text-primary transition-colors"
-      >
-        Sign In
-      </Link>
+      <AuthNav />
     </nav>
   );
 }

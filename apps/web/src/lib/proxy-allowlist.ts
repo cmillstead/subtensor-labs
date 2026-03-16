@@ -6,6 +6,7 @@ export const ALLOWED_PREFIXES = [
   "/engine/subnets",
   "/engine/predictions",
   "/engine/alerts",
+  "/engine/users",
 ];
 
 export function isAllowed(path: string): boolean {
