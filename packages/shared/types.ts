@@ -101,10 +101,16 @@ export type ScreenerSortField =
   | "fill_rate"
   | "owner_take_rate"
   | "tao_reserves"
-  | "alpha_reserves";
+  | "alpha_reserves"
+  | "alpha_price_change_24h"
+  | "alpha_price_change_7d"
+  | "alpha_price_change_30d"
+  | "net_tao_inflow"
+  | "immunity_active";
 
 /** Screener filter criteria */
 export interface ScreenerFilter {
+  // Basic filters (free tier)
   min_miners: number | null;
   max_miners: number | null;
   min_validators: number | null;
@@ -117,6 +123,23 @@ export interface ScreenerFilter {
   max_alpha_price: number | null;
   min_subnet_age_days: number | null;
   max_subnet_age_days: number | null;
+  // Advanced filters (premium)
+  min_alpha_price_change_24h: number | null;
+  max_alpha_price_change_24h: number | null;
+  min_alpha_price_change_7d: number | null;
+  max_alpha_price_change_7d: number | null;
+  min_alpha_price_change_30d: number | null;
+  max_alpha_price_change_30d: number | null;
+  min_alpha_market_cap: number | null;
+  max_alpha_market_cap: number | null;
+  min_net_tao_inflow: number | null;
+  max_net_tao_inflow: number | null;
+  min_fill_rate: number | null;
+  max_fill_rate: number | null;
+  min_owner_take_rate: number | null;
+  max_owner_take_rate: number | null;
+  immunity_active: boolean | null;
+  // Sort
   sort_by: ScreenerSortField;
   sort_direction: "asc" | "desc";
 }
@@ -138,6 +161,11 @@ export interface ScreenerSubnet {
   subnet_age_days: number;
   sparkline_emission_7d: number[];
   sparkline_price_7d: number[];
+  alpha_price_change_24h: number | null;
+  alpha_price_change_7d: number | null;
+  alpha_price_change_30d: number | null;
+  net_tao_inflow: number | null;
+  immunity_active: boolean;
 }
 
 /** Screener query result (matches Python ScreenerResponseSchema) */

@@ -44,6 +44,26 @@ class TestScreenerQueryEndpoint:
         assert isinstance(subnet1["sparkline_price_7d"], list)
         assert "subnet_age_days" in subnet1
 
+    async def test_computed_metrics_present(
+        self,
+        client: AsyncClient,
+        seed_subnets,
+    ) -> None:
+        """New computed fields are present in the response."""
+        resp = await client.get("/engine/screener/query")
+        subnets = resp.json()["data"]["subnets"]
+        subnet1 = next(s for s in subnets if s["netuid"] == 1)
+
+        # Price change fields — may be None or float depending on history
+        assert "alpha_price_change_24h" in subnet1
+        assert "alpha_price_change_7d" in subnet1
+        assert "alpha_price_change_30d" in subnet1
+        # Net TAO inflow — None when no emission_records seeded
+        assert "net_tao_inflow" in subnet1
+        # Immunity active — boolean
+        assert "immunity_active" in subnet1
+        assert isinstance(subnet1["immunity_active"], bool)
+
     async def test_first_call_is_cache_miss(
         self,
         client: AsyncClient,

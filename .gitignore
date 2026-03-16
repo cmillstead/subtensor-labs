@@ -53,8 +53,15 @@ build/
 # BMAD workflow outputs (tracked separately)
 _bmad-output/
 
-# IDE
+# IDE / CLI tools
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
+
+# BMAD framework (installed per-machine)
+_bmad/
+
+# Build artifacts
+*.tsbuildinfo

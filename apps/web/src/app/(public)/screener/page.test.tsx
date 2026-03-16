@@ -20,6 +20,11 @@ const MOCK_SUBNETS = [
     subnet_age_days: 120,
     sparkline_emission_7d: [0.04, 0.05],
     sparkline_price_7d: [0.10, 0.12],
+    alpha_price_change_24h: 5.0,
+    alpha_price_change_7d: 15.0,
+    alpha_price_change_30d: 30.0,
+    net_tao_inflow: 100.0,
+    immunity_active: false,
   },
   {
     netuid: 2,
@@ -37,6 +42,11 @@ const MOCK_SUBNETS = [
     subnet_age_days: 60,
     sparkline_emission_7d: [0.08, 0.10],
     sparkline_price_7d: [0.22, 0.25],
+    alpha_price_change_24h: -2.0,
+    alpha_price_change_7d: 8.0,
+    alpha_price_change_30d: -10.0,
+    net_tao_inflow: -50.0,
+    immunity_active: false,
   },
 ];
 
@@ -59,6 +69,14 @@ vi.mock("@/hooks/useScreener", () => ({
     error: null,
     refetch: vi.fn(),
   })),
+}));
+
+// Mock next-auth/react
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({
+    data: { user: { premiumStatus: "premium" } },
+    status: "authenticated",
+  }),
 }));
 
 // Mock recharts
@@ -101,11 +119,17 @@ describe("ScreenerPage", () => {
     expect(screen.getByText(/ago|just now|Updated/i)).toBeInTheDocument();
   });
 
-  it("renders FilterPanel component", () => {
+  it("renders FilterPanel with basic and advanced sections", () => {
     render(<ScreenerPage />);
-    // FilterPanel renders filter labels — check for at least one
-    expect(screen.getAllByText("Miner Count").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Emission Share").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Basic Filters")).toBeInTheDocument();
+    expect(screen.getByText("Advanced Filters")).toBeInTheDocument();
+  });
+
+  it("renders advanced filter controls for premium user", () => {
+    render(<ScreenerPage />);
+    expect(screen.getByText("Price Change 24h")).toBeInTheDocument();
+    expect(screen.getByText("Net TAO Inflow")).toBeInTheDocument();
+    expect(screen.getByLabelText("Immunity Status")).toBeInTheDocument();
   });
 
   it("renders Filters heading from FilterPanel", () => {

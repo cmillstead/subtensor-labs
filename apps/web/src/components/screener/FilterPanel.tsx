@@ -1,9 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { ScreenerFilter, ScreenerSubnet } from "@/types";
 import { RangeInput } from "./RangeInput";
 import { Button } from "@/components/ui/button";
+import { PremiumGate } from "@/components/common/PremiumGate";
+import { PremiumBadge } from "@/components/common/PremiumBadge";
 
 interface FilterPanelProps {
   filters: ScreenerFilter;
@@ -23,7 +26,7 @@ interface FilterConfig {
   displayScale?: number;
 }
 
-const FILTER_CONFIGS: FilterConfig[] = [
+const BASIC_FILTER_CONFIGS: FilterConfig[] = [
   {
     label: "Miner Count",
     minKey: "min_miners",
@@ -73,13 +76,79 @@ const FILTER_CONFIGS: FilterConfig[] = [
   },
 ];
 
+const ADVANCED_FILTER_CONFIGS: FilterConfig[] = [
+  {
+    label: "Price Change 24h",
+    minKey: "min_alpha_price_change_24h",
+    maxKey: "max_alpha_price_change_24h",
+    dataField: "alpha_price_change_24h",
+    suffix: "%",
+    step: 0.1,
+  },
+  {
+    label: "Price Change 7d",
+    minKey: "min_alpha_price_change_7d",
+    maxKey: "max_alpha_price_change_7d",
+    dataField: "alpha_price_change_7d",
+    suffix: "%",
+    step: 0.1,
+  },
+  {
+    label: "Price Change 30d",
+    minKey: "min_alpha_price_change_30d",
+    maxKey: "max_alpha_price_change_30d",
+    dataField: "alpha_price_change_30d",
+    suffix: "%",
+    step: 0.1,
+  },
+  {
+    label: "Alpha Market Cap",
+    minKey: "min_alpha_market_cap",
+    maxKey: "max_alpha_market_cap",
+    dataField: "alpha_market_cap",
+    suffix: "\u03C4",
+    step: 0.01,
+  },
+  {
+    label: "Net TAO Inflow",
+    minKey: "min_net_tao_inflow",
+    maxKey: "max_net_tao_inflow",
+    dataField: "net_tao_inflow",
+    suffix: "\u03C4",
+    step: 0.1,
+  },
+  {
+    label: "Fill Rate",
+    minKey: "min_fill_rate",
+    maxKey: "max_fill_rate",
+    dataField: "fill_rate",
+    suffix: "%",
+    step: 1,
+    displayScale: 100,
+  },
+  {
+    label: "Owner Take Rate",
+    minKey: "min_owner_take_rate",
+    maxKey: "max_owner_take_rate",
+    dataField: "owner_take_rate",
+    suffix: "%",
+    step: 1,
+    displayScale: 100,
+  },
+];
+
+const ALL_FILTER_CONFIGS = [...BASIC_FILTER_CONFIGS, ...ADVANCED_FILTER_CONFIGS];
+
 function computeDataRange(
   subnets: ScreenerSubnet[] | undefined,
   field: keyof ScreenerSubnet,
   displayScale: number,
 ): { min: string; max: string } {
   if (!subnets || subnets.length === 0) return { min: "Min", max: "Max" };
-  const values = subnets.map((s) => s[field] as number);
+  const values = subnets
+    .map((s) => s[field] as number | null)
+    .filter((v): v is number => v !== null);
+  if (values.length === 0) return { min: "Min", max: "Max" };
   const min = Math.min(...values) * displayScale;
   const max = Math.max(...values) * displayScale;
   return {
@@ -112,10 +181,12 @@ export function FilterPanel({
   subnetData,
 }: FilterPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const { data: session } = useSession();
+  const isPremium = session?.user?.premiumStatus === "premium";
 
   const dataRanges = useMemo(() => {
     const ranges: Record<string, { min: string; max: string }> = {};
-    for (const config of FILTER_CONFIGS) {
+    for (const config of ALL_FILTER_CONFIGS) {
       ranges[config.dataField as string] = computeDataRange(
         subnetData,
         config.dataField,
@@ -136,36 +207,116 @@ export function FilterPanel({
     });
   }
 
+  function handleImmunityChange(value: string) {
+    const mapped =
+      value === "all" ? null : value === "active" ? true : false;
+    onFilterChange({ ...filters, immunity_active: mapped });
+  }
+
+  function renderFilterGroup(configs: FilterConfig[]) {
+    return configs.map((config) => {
+      const range = dataRanges[config.dataField as string];
+      const scale = config.displayScale ?? 1;
+      return (
+        <RangeInput
+          key={config.dataField as string}
+          label={config.label}
+          minValue={toDisplayValue(
+            filters[config.minKey] as number | null,
+            scale,
+          )}
+          maxValue={toDisplayValue(
+            filters[config.maxKey] as number | null,
+            scale,
+          )}
+          onMinChange={(val) =>
+            handleFilterChange(config.minKey, val, scale)
+          }
+          onMaxChange={(val) =>
+            handleFilterChange(config.maxKey, val, scale)
+          }
+          step={config.step}
+          suffix={config.suffix}
+          placeholderMin={range?.min}
+          placeholderMax={range?.max}
+        />
+      );
+    });
+  }
+
+  const immunityValue =
+    filters.immunity_active === null
+      ? "all"
+      : filters.immunity_active
+        ? "active"
+        : "expired";
+
   const filterContent = (
     <div className="space-y-4">
-      {FILTER_CONFIGS.map((config) => {
-        const range = dataRanges[config.dataField as string];
-        const scale = config.displayScale ?? 1;
-        return (
-          <RangeInput
-            key={config.dataField as string}
-            label={config.label}
-            minValue={toDisplayValue(
-              filters[config.minKey] as number | null,
-              scale,
-            )}
-            maxValue={toDisplayValue(
-              filters[config.maxKey] as number | null,
-              scale,
-            )}
-            onMinChange={(val) =>
-              handleFilterChange(config.minKey, val, scale)
-            }
-            onMaxChange={(val) =>
-              handleFilterChange(config.maxKey, val, scale)
-            }
-            step={config.step}
-            suffix={config.suffix}
-            placeholderMin={range?.min}
-            placeholderMax={range?.max}
-          />
-        );
-      })}
+      {/* Basic Filters */}
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+        Basic Filters
+      </h3>
+      {renderFilterGroup(BASIC_FILTER_CONFIGS)}
+
+      {/* Divider */}
+      <div className="border-t border-zinc-800" />
+
+      {/* Advanced Filters */}
+      <div className="flex items-center gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+          Advanced Filters
+        </h3>
+        <PremiumBadge />
+      </div>
+
+      {isPremium ? (
+        <div className="space-y-4">
+          {renderFilterGroup(ADVANCED_FILTER_CONFIGS)}
+
+          {/* Immunity Status Toggle */}
+          <div>
+            <label
+              htmlFor="immunity-filter"
+              className="mb-1.5 block text-xs font-medium text-zinc-400"
+            >
+              Immunity Status
+            </label>
+            <select
+              id="immunity-filter"
+              value={immunityValue}
+              onChange={(e) => handleImmunityChange(e.target.value)}
+              className="min-h-[44px] w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            >
+              <option value="all">All</option>
+              <option value="active">Active (Immune)</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+        </div>
+      ) : (
+        <PremiumGate featureName="Advanced Filters">
+          <div className="space-y-4">
+            {renderFilterGroup(ADVANCED_FILTER_CONFIGS)}
+
+            <div>
+              <label
+                htmlFor="immunity-filter-locked"
+                className="mb-1.5 block text-xs font-medium text-zinc-400"
+              >
+                Immunity Status
+              </label>
+              <select
+                id="immunity-filter-locked"
+                disabled
+                className="min-h-[44px] w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 opacity-50"
+              >
+                <option>All</option>
+              </select>
+            </div>
+          </div>
+        </PremiumGate>
+      )}
 
       {activeFilterCount > 0 && (
         <Button
