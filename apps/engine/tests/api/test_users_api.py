@@ -1,7 +1,8 @@
-"""Tests for user registration and authentication endpoints."""
+"""Tests for user registration, authentication, and password reset endpoints."""
 
+import hashlib
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,6 +10,7 @@ from httpx import AsyncClient
 
 from engine.core.database import get_session
 from engine.main import app
+from engine.models.password_reset_token import PasswordResetToken
 from engine.models.user import User
 
 
@@ -232,3 +234,216 @@ class TestUserVerification:
         assert body["error"]["type"] == "invalid_credentials"
         # Same error message as wrong password — no email enumeration
         assert body["error"]["message"] == "Invalid email or password"
+
+
+def _make_token(
+    id: int = 1,
+    user_id: int = 1,
+    token_hash: str = "abc123hash",
+    hours_until_expiry: float = 1.0,
+    used: bool = False,
+) -> PasswordResetToken:
+    """Create a PasswordResetToken model instance for testing."""
+    now = datetime.now(UTC)
+    token = PasswordResetToken(
+        user_id=user_id,
+        token_hash=token_hash,
+        expires_at=now + timedelta(hours=hours_until_expiry),
+    )
+    object.__setattr__(token, "id", id)
+    object.__setattr__(token, "created_at", now)
+    if used:
+        object.__setattr__(token, "used_at", now)
+    return token
+
+
+class TestPasswordResetRequest:
+    """Tests for POST /engine/users/reset-password/request."""
+
+    async def test_request_with_valid_email(self, client: AsyncClient) -> None:
+        mock_session = AsyncMock()
+        user = _make_user(email="reset@example.com")
+        # First call: select user. Second call: update (invalidate old tokens).
+        mock_user_result = MagicMock()
+        mock_user_result.scalar_one_or_none.return_value = user
+        mock_update_result = MagicMock()
+        mock_session.execute.side_effect = [mock_user_result, mock_update_result]
+        mock_session.add = MagicMock()
+
+        async def override() -> AsyncGenerator:
+            yield mock_session
+
+        app.dependency_overrides[get_session] = override
+
+        with patch("engine.api.users.send_password_reset_email") as mock_email:
+            res = await client.post(
+                "/engine/users/reset-password/request",
+                json={"email": "reset@example.com"},
+            )
+
+        assert res.status_code == 200
+        assert "reset link has been sent" in res.json()["message"]
+        mock_email.assert_called_once()
+        # Verify token was added to session
+        mock_session.add.assert_called_once()
+        added_token = mock_session.add.call_args[0][0]
+        assert isinstance(added_token, PasswordResetToken)
+        assert added_token.user_id == user.id
+
+    async def test_request_with_nonexistent_email_returns_200(self, client: AsyncClient) -> None:
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        async def override() -> AsyncGenerator:
+            yield mock_session
+
+        app.dependency_overrides[get_session] = override
+
+        with patch("engine.api.users.send_password_reset_email") as mock_email:
+            res = await client.post(
+                "/engine/users/reset-password/request",
+                json={"email": "nobody@example.com"},
+            )
+
+        assert res.status_code == 200
+        # Same message as valid email — no enumeration
+        assert "reset link has been sent" in res.json()["message"]
+        mock_email.assert_not_called()
+
+    async def test_request_invalidates_previous_tokens(self, client: AsyncClient) -> None:
+        mock_session = AsyncMock()
+        user = _make_user(email="multi@example.com")
+        mock_user_result = MagicMock()
+        mock_user_result.scalar_one_or_none.return_value = user
+        mock_update_result = MagicMock()
+        mock_session.execute.side_effect = [mock_user_result, mock_update_result]
+        mock_session.add = MagicMock()
+
+        async def override() -> AsyncGenerator:
+            yield mock_session
+
+        app.dependency_overrides[get_session] = override
+
+        with patch("engine.api.users.send_password_reset_email"):
+            res = await client.post(
+                "/engine/users/reset-password/request",
+                json={"email": "multi@example.com"},
+            )
+
+        assert res.status_code == 200
+        # Should have two execute calls: select user + update (invalidate old tokens)
+        assert mock_session.execute.call_count == 2
+
+
+class TestPasswordResetConfirm:
+    """Tests for POST /engine/users/reset-password/confirm."""
+
+    async def test_confirm_with_valid_token(self, client: AsyncClient) -> None:
+        raw_token = "valid-test-token-abc"
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        user = _make_user(email="confirm@example.com")
+        user.password_hash = "$argon2id$old_hash"
+        token_record = _make_token(user_id=user.id, token_hash=token_hash)
+
+        mock_session = AsyncMock()
+        mock_token_result = MagicMock()
+        mock_token_result.scalar_one_or_none.return_value = token_record
+        mock_user_result = MagicMock()
+        mock_user_result.scalar_one.return_value = user
+        mock_session.execute.side_effect = [mock_token_result, mock_user_result]
+
+        async def override() -> AsyncGenerator:
+            yield mock_session
+
+        app.dependency_overrides[get_session] = override
+
+        with patch("engine.api.users.ph") as mock_ph:
+            mock_ph.hash.return_value = "$argon2id$new_hash"
+            res = await client.post(
+                "/engine/users/reset-password/confirm",
+                json={"token": raw_token, "password": "newpassword123"},
+            )
+
+        assert res.status_code == 200
+        assert "reset successfully" in res.json()["message"]
+        # Password should be updated
+        assert user.password_hash == "$argon2id$new_hash"
+        # Token should be marked as used
+        assert token_record.used_at is not None
+
+    async def test_confirm_with_expired_token(self, client: AsyncClient) -> None:
+        raw_token = "expired-test-token"
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        token_record = _make_token(token_hash=token_hash, hours_until_expiry=-1.0)
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = token_record
+        mock_session.execute.return_value = mock_result
+
+        async def override() -> AsyncGenerator:
+            yield mock_session
+
+        app.dependency_overrides[get_session] = override
+
+        res = await client.post(
+            "/engine/users/reset-password/confirm",
+            json={"token": raw_token, "password": "newpassword123"},
+        )
+
+        assert res.status_code == 400
+        body = res.json()
+        assert body["error"]["type"] == "token_expired"
+
+    async def test_confirm_with_already_used_token(self, client: AsyncClient) -> None:
+        raw_token = "used-test-token"
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        token_record = _make_token(token_hash=token_hash, used=True)
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = token_record
+        mock_session.execute.return_value = mock_result
+
+        async def override() -> AsyncGenerator:
+            yield mock_session
+
+        app.dependency_overrides[get_session] = override
+
+        res = await client.post(
+            "/engine/users/reset-password/confirm",
+            json={"token": raw_token, "password": "newpassword123"},
+        )
+
+        assert res.status_code == 400
+        body = res.json()
+        assert body["error"]["type"] == "invalid_token"
+
+    async def test_confirm_with_invalid_token(self, client: AsyncClient) -> None:
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        async def override() -> AsyncGenerator:
+            yield mock_session
+
+        app.dependency_overrides[get_session] = override
+
+        res = await client.post(
+            "/engine/users/reset-password/confirm",
+            json={"token": "nonexistent-token", "password": "newpassword123"},
+        )
+
+        assert res.status_code == 400
+        body = res.json()
+        assert body["error"]["type"] == "invalid_token"
+
+    async def test_confirm_with_short_password(self, client: AsyncClient) -> None:
+        res = await client.post(
+            "/engine/users/reset-password/confirm",
+            json={"token": "any-token", "password": "short"},
+        )
+        assert res.status_code == 422

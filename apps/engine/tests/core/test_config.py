@@ -21,7 +21,12 @@ def test_validate_encryption_key_passes_in_debug_mode() -> None:
 
 def test_validate_encryption_key_passes_when_key_set() -> None:
     """Production mode passes when key is provided."""
-    s = Settings(debug=False, address_encryption_key="supersecretkey123", taostats_api_key="ts-key")
+    s = Settings(
+        debug=False,
+        address_encryption_key="supersecretkey123",
+        taostats_api_key="ts-key",
+        resend_api_key="re_test",
+    )
     assert s.address_encryption_key == "supersecretkey123"
 
 
@@ -44,7 +49,12 @@ def test_default_values() -> None:
 def test_validate_taostats_api_key_raises_in_production() -> None:
     """Production mode requires ENGINE_TAOSTATS_API_KEY."""
     with pytest.raises(ValidationError, match="ENGINE_TAOSTATS_API_KEY"):
-        Settings(debug=False, address_encryption_key="key123", taostats_api_key="")
+        Settings(
+            debug=False,
+            address_encryption_key="key123",
+            taostats_api_key="",
+            resend_api_key="re_test",
+        )
 
 
 def test_wildcard_cors_rejected_in_production() -> None:
@@ -54,7 +64,19 @@ def test_wildcard_cors_rejected_in_production() -> None:
             debug=False,
             address_encryption_key="key123",
             taostats_api_key="ts-key",
+            resend_api_key="re_test",
             cors_origins=["*"],
+        )
+
+
+def test_validate_resend_api_key_raises_in_production() -> None:
+    """Production mode requires ENGINE_RESEND_API_KEY."""
+    with pytest.raises(ValidationError, match="ENGINE_RESEND_API_KEY"):
+        Settings(
+            debug=False,
+            address_encryption_key="key123",
+            taostats_api_key="ts-key",
+            resend_api_key="",
         )
 
 

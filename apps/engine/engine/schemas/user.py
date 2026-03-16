@@ -21,6 +21,19 @@ class UserVerifySchema(BaseSchema):
     password: str
 
 
+class PasswordResetRequestSchema(BaseSchema):
+    """Password reset request — email only."""
+
+    email: EmailStr
+
+
+class PasswordResetConfirmSchema(BaseSchema):
+    """Password reset confirmation — token + new password."""
+
+    token: str
+    password: str = Field(min_length=8)
+
+
 class UserResponseSchema(BaseSchema):
     """User data returned after registration or verification."""
 
