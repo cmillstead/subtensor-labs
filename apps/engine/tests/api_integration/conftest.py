@@ -44,26 +44,20 @@ def _run(coro):
 
 
 async def _init_tables():
+    """Create tables if they don't exist.
+
+    In CI, Alembic migrations run first so tables already exist.
+    Locally, this creates them from SQLAlchemy metadata.
+    create_all with checkfirst=True (the default) is safe either way.
+    """
     eng = create_async_engine(TEST_DB_URL)
     async with eng.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-    await eng.dispose()
-
-
-async def _drop_tables():
-    eng = create_async_engine(TEST_DB_URL)
-    async with eng.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
     await eng.dispose()
 
 
 # Create tables once when this conftest is loaded
 _run(_init_tables())
-
-
-def teardown_module():
-    _run(_drop_tables())
 
 
 @pytest.fixture

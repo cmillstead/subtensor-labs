@@ -1,5 +1,6 @@
 """Tests for screener computed metrics — real database, no mocks."""
 
+import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -14,7 +15,10 @@ from engine.screener.metrics import (
     compute_price_changes,
 )
 
-TEST_DB_URL = "postgresql+asyncpg://tao:tao@localhost:5432/subtensor_labs_test"
+TEST_DB_URL = os.environ.get(
+    "ENGINE_DATABASE_URL",
+    "postgresql+asyncpg://tao:tao@localhost:5432/subtensor_labs_test",
+)
 
 
 @pytest.fixture
