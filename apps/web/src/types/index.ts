@@ -18,6 +18,7 @@ export type {
   SubnetDetailResult,
   EngineResponse,
   ErrorResponse,
+  SavedScreener,
 } from "@subtensor-labs/shared";
 
 /** Navigation route definition for the app shell */
