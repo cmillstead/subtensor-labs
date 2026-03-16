@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { formatTao } from "@/components/common/TaoAmount";
 import type { SubnetPosition } from "@/types";
 
 const CHART_COLORS = [
@@ -93,12 +94,6 @@ function computeAllocationData(
   ];
 }
 
-function formatTaoShort(value: number): string {
-  if (value >= 1_000_000) return `τ ${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `τ ${(value / 1_000).toFixed(1)}K`;
-  return `τ ${value.toFixed(2)}`;
-}
-
 interface CustomTooltipProps {
   active?: boolean;
   payload?: Array<{ payload: AllocationSlice }>;
@@ -112,7 +107,7 @@ function ChartTooltip({ active, payload }: CustomTooltipProps) {
     <div className="rounded-lg border border-border bg-surface p-3 shadow-lg">
       <p className="text-sm font-medium text-text-primary">{slice.name}</p>
       <p className="font-mono text-sm text-text-secondary">
-        {formatTaoShort(slice.value)}
+        {`τ ${formatTao(slice.value, true)}`}
       </p>
       <p className="font-mono text-sm text-text-secondary">
         {slice.percentage.toFixed(1)}%
@@ -210,11 +205,7 @@ function AllocationDonut({
           <span className="text-xs text-text-secondary">Total</span>
           <span className="font-mono text-lg font-semibold text-text-primary">
             <span className="text-text-secondary">τ</span>{" "}
-            {totalValueTao >= 1_000_000
-              ? `${(totalValueTao / 1_000_000).toFixed(1)}M`
-              : totalValueTao >= 1_000
-                ? `${(totalValueTao / 1_000).toFixed(1)}K`
-                : totalValueTao.toFixed(2)}
+            {formatTao(totalValueTao, true)}
           </span>
         </div>
       </div>
