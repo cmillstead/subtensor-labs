@@ -3,24 +3,14 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { FilterPanel } from "./FilterPanel";
-import type { ScreenerFilter, ScreenerSubnet } from "@/types";
+import type { ScreenerSubnet } from "@/types";
+import { EMPTY_FILTERS } from "@/hooks/useScreenerFilters";
 
-const EMPTY_FILTERS: ScreenerFilter = {
-  min_miners: null,
-  max_miners: null,
-  min_validators: null,
-  max_validators: null,
-  min_registration_cost: null,
-  max_registration_cost: null,
-  min_emission_share: null,
-  max_emission_share: null,
-  min_alpha_price: null,
-  max_alpha_price: null,
-  min_subnet_age_days: null,
-  max_subnet_age_days: null,
-  sort_by: "emission_share",
-  sort_direction: "desc",
-};
+const mockUseSession = vi.fn();
+
+vi.mock("next-auth/react", () => ({
+  useSession: () => mockUseSession(),
+}));
 
 const MOCK_SUBNETS: ScreenerSubnet[] = [
   {
@@ -39,6 +29,11 @@ const MOCK_SUBNETS: ScreenerSubnet[] = [
     subnet_age_days: 120,
     sparkline_emission_7d: [0.04, 0.05],
     sparkline_price_7d: [0.10, 0.12],
+    alpha_price_change_24h: 5.0,
+    alpha_price_change_7d: 15.0,
+    alpha_price_change_30d: 30.0,
+    net_tao_inflow: 100.0,
+    immunity_active: false,
   },
 ];
 
@@ -51,7 +46,15 @@ const defaultProps = {
 };
 
 describe("FilterPanel", () => {
-  it("renders all six filter controls with labels", () => {
+  beforeEach(() => {
+    // Default: premium user (full access)
+    mockUseSession.mockReturnValue({
+      data: { user: { premiumStatus: "premium" } },
+      status: "authenticated",
+    });
+  });
+
+  it("renders all 6 basic filter controls", () => {
     render(<FilterPanel {...defaultProps} />);
     expect(screen.getByText("Miner Count")).toBeInTheDocument();
     expect(screen.getByText("Validator Count")).toBeInTheDocument();
@@ -59,6 +62,37 @@ describe("FilterPanel", () => {
     expect(screen.getByText("Emission Share")).toBeInTheDocument();
     expect(screen.getByText("Alpha Price")).toBeInTheDocument();
     expect(screen.getByText("Subnet Age")).toBeInTheDocument();
+  });
+
+  it("renders all 7 advanced range filter controls for premium users", () => {
+    render(<FilterPanel {...defaultProps} />);
+    expect(screen.getByText("Price Change 24h")).toBeInTheDocument();
+    expect(screen.getByText("Price Change 7d")).toBeInTheDocument();
+    expect(screen.getByText("Price Change 30d")).toBeInTheDocument();
+    expect(screen.getByText("Alpha Market Cap")).toBeInTheDocument();
+    expect(screen.getByText("Net TAO Inflow")).toBeInTheDocument();
+    expect(screen.getByText("Fill Rate")).toBeInTheDocument();
+    expect(screen.getByText("Owner Take Rate")).toBeInTheDocument();
+  });
+
+  it("renders immunity status toggle for premium users", () => {
+    render(<FilterPanel {...defaultProps} />);
+    expect(screen.getByLabelText("Immunity Status")).toBeInTheDocument();
+    expect(screen.getByText("All")).toBeInTheDocument();
+    expect(screen.getByText("Active (Immune)")).toBeInTheDocument();
+    expect(screen.getByText("Expired")).toBeInTheDocument();
+  });
+
+  it("renders section headers", () => {
+    render(<FilterPanel {...defaultProps} />);
+    expect(screen.getByText("Basic Filters")).toBeInTheDocument();
+    expect(screen.getByText("Advanced Filters")).toBeInTheDocument();
+  });
+
+  it("shows PremiumBadge next to Advanced Filters header", () => {
+    render(<FilterPanel {...defaultProps} />);
+    // The PremiumBadge renders "Premium" text
+    expect(screen.getByText("Premium")).toBeInTheDocument();
   });
 
   it("does not show Reset Filters button when no filters are active", () => {
@@ -93,7 +127,6 @@ describe("FilterPanel", () => {
 
   it("renders mobile toggle button with Filters text", () => {
     render(<FilterPanel {...defaultProps} />);
-    // Mobile toggle button exists in DOM (hidden via CSS on desktop)
     const toggleButton = screen.getByRole("button", { name: /Filters/i });
     expect(toggleButton).toBeInTheDocument();
   });
@@ -125,7 +158,6 @@ describe("FilterPanel", () => {
       <FilterPanel {...defaultProps} onFilterChange={onFilterChange} />,
     );
 
-    // User types "5" meaning 5% — should store as 0.05
     const minInput = screen.getByLabelText("Emission Share minimum");
     await userEvent.type(minInput, "5");
 
@@ -135,5 +167,96 @@ describe("FilterPanel", () => {
       onFilterChange.mock.calls[onFilterChange.mock.calls.length - 1][0];
     expect(lastCall.min_emission_share).toBeCloseTo(0.05);
     vi.useRealTimers();
+  });
+
+  describe("premium gating", () => {
+    it("basic filters remain functional for free users", () => {
+      mockUseSession.mockReturnValue({
+        data: { user: { premiumStatus: "free" } },
+        status: "authenticated",
+      });
+
+      render(<FilterPanel {...defaultProps} />);
+
+      // Basic filters should still be accessible
+      expect(screen.getByText("Miner Count")).toBeInTheDocument();
+      expect(screen.getByLabelText("Miner Count minimum")).toBeInTheDocument();
+    });
+
+    it("advanced filters are gated behind PremiumGate for free users", () => {
+      mockUseSession.mockReturnValue({
+        data: { user: { premiumStatus: "free" } },
+        status: "authenticated",
+      });
+
+      render(<FilterPanel {...defaultProps} />);
+
+      // PremiumGate shows upgrade overlay for free users
+      expect(screen.getByText("Upgrade to Premium")).toBeInTheDocument();
+    });
+
+    it("advanced filters are fully functional for premium users", () => {
+      mockUseSession.mockReturnValue({
+        data: { user: { premiumStatus: "premium" } },
+        status: "authenticated",
+      });
+
+      render(<FilterPanel {...defaultProps} />);
+
+      // No upgrade overlay
+      expect(
+        screen.queryByText("Upgrade to Premium"),
+      ).not.toBeInTheDocument();
+
+      // Advanced filters are accessible
+      expect(
+        screen.getByLabelText("Price Change 24h minimum"),
+      ).toBeInTheDocument();
+    });
+
+    it("advanced filters are gated for unauthenticated users", () => {
+      mockUseSession.mockReturnValue({
+        data: null,
+        status: "unauthenticated",
+      });
+
+      render(<FilterPanel {...defaultProps} />);
+
+      expect(screen.getByText("Upgrade to Premium")).toBeInTheDocument();
+    });
+  });
+
+  describe("immunity filter", () => {
+    it("calls onFilterChange with immunity_active when immunity select changes", async () => {
+      const onFilterChange = vi.fn();
+      render(
+        <FilterPanel {...defaultProps} onFilterChange={onFilterChange} />,
+      );
+
+      const select = screen.getByLabelText("Immunity Status");
+      await userEvent.selectOptions(select, "active");
+
+      expect(onFilterChange).toHaveBeenCalledWith(
+        expect.objectContaining({ immunity_active: true }),
+      );
+    });
+
+    it("sets immunity_active to null when 'All' is selected", async () => {
+      const onFilterChange = vi.fn();
+      render(
+        <FilterPanel
+          {...defaultProps}
+          filters={{ ...EMPTY_FILTERS, immunity_active: true }}
+          onFilterChange={onFilterChange}
+        />,
+      );
+
+      const select = screen.getByLabelText("Immunity Status");
+      await userEvent.selectOptions(select, "all");
+
+      expect(onFilterChange).toHaveBeenCalledWith(
+        expect.objectContaining({ immunity_active: null }),
+      );
+    });
   });
 });

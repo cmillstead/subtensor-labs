@@ -21,6 +21,11 @@ class ScreenerSubnetSchema(BaseSchema):
     subnet_age_days: int
     sparkline_emission_7d: list[float]
     sparkline_price_7d: list[float]
+    alpha_price_change_24h: float | None = None
+    alpha_price_change_7d: float | None = None
+    alpha_price_change_30d: float | None = None
+    net_tao_inflow: float | None = None
+    immunity_active: bool = False
 
 
 class ScreenerResponseSchema(BaseSchema):

@@ -11,6 +11,11 @@ from engine.core.logging import get_logger
 from engine.core.redis import cache_get, cache_set
 from engine.models.subnet_snapshot import SubnetSnapshot
 from engine.schemas.screener import ScreenerResponseSchema, ScreenerSubnetSchema
+from engine.screener.metrics import (
+    compute_immunity_status,
+    compute_net_tao_inflow,
+    compute_price_changes,
+)
 
 log = get_logger(__name__)
 
@@ -110,11 +115,28 @@ async def _query_subnets() -> ScreenerResponseSchema:
             price_sparklines.setdefault(netuid, []).append(float(row.avg_price))
 
         now = datetime.now(UTC)
+
+        # Build subnet age map and current prices for computed metrics
+        netuids = [snap.netuid for snap in latest_snapshots]
+        subnet_ages: dict[int, int] = {}
+        current_prices: dict[int, float] = {}
+        for snap in latest_snapshots:
+            first = first_seen_map.get(snap.netuid, now)
+            subnet_ages[snap.netuid] = max(0, (now - first).days)
+            current_prices[snap.netuid] = float(snap.alpha_price)
+
+        # Compute derived metrics
+        price_changes = await compute_price_changes(session, netuids, current_prices, now)
+        inflow_map = await compute_net_tao_inflow(session, netuids)
+        immunity_map = compute_immunity_status(subnet_ages)
+
         subnets: list[ScreenerSubnetSchema] = []
 
         for snap in latest_snapshots:
-            first = first_seen_map.get(snap.netuid, now)
-            age_days = max(0, (now - first).days)
+            age_days = subnet_ages[snap.netuid]
+            pc = price_changes.get(snap.netuid)
+            inflow = inflow_map.get(snap.netuid)
+            immune = immunity_map.get(snap.netuid, False)
 
             subnets.append(
                 ScreenerSubnetSchema(
@@ -133,6 +155,11 @@ async def _query_subnets() -> ScreenerResponseSchema:
                     subnet_age_days=age_days,
                     sparkline_emission_7d=emission_sparklines.get(snap.netuid, []),
                     sparkline_price_7d=price_sparklines.get(snap.netuid, []),
+                    alpha_price_change_24h=pc.change_24h if pc else None,
+                    alpha_price_change_7d=pc.change_7d if pc else None,
+                    alpha_price_change_30d=pc.change_30d if pc else None,
+                    net_tao_inflow=inflow,
+                    immunity_active=immune,
                 )
             )
 
