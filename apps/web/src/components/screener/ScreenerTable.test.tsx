@@ -189,4 +189,125 @@ describe("ScreenerTable", () => {
     );
     expect(screen.getByText("SN99")).toBeInTheDocument();
   });
+
+  // Selection tests (Task 1)
+  describe("checkbox selection", () => {
+    it("does not render checkboxes when selection props not provided", () => {
+      render(<ScreenerTable {...defaultProps} />);
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    });
+
+    it("renders checkboxes when selection props provided", () => {
+      render(
+        <ScreenerTable
+          {...defaultProps}
+          selectedNetuids={new Set()}
+          onSelectionChange={vi.fn()}
+        />
+      );
+      const checkboxes = screen.getAllByRole("checkbox");
+      expect(checkboxes.length).toBe(3); // one per subnet
+    });
+
+    it("checkboxes reflect selectedNetuids state", () => {
+      render(
+        <ScreenerTable
+          {...defaultProps}
+          selectedNetuids={new Set([1])}
+          onSelectionChange={vi.fn()}
+        />
+      );
+      const cb1 = screen.getByLabelText("Select SN1 for comparison");
+      const cb3 = screen.getByLabelText("Select SN3 for comparison");
+      expect(cb1).toBeChecked();
+      expect(cb3).not.toBeChecked();
+    });
+
+    it("calls onSelectionChange with toggled netuid when checkbox clicked", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <ScreenerTable
+          {...defaultProps}
+          selectedNetuids={new Set()}
+          onSelectionChange={onChange}
+        />
+      );
+      await user.click(screen.getByLabelText("Select SN1 for comparison"));
+      expect(onChange).toHaveBeenCalledOnce();
+      const newSet = onChange.mock.calls[0][0] as Set<number>;
+      expect(newSet.has(1)).toBe(true);
+    });
+
+    it("calls onSelectionChange with removed netuid when unchecking", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <ScreenerTable
+          {...defaultProps}
+          selectedNetuids={new Set([1, 3])}
+          onSelectionChange={onChange}
+        />
+      );
+      await user.click(screen.getByLabelText("Select SN1 for comparison"));
+      expect(onChange).toHaveBeenCalledOnce();
+      const newSet = onChange.mock.calls[0][0] as Set<number>;
+      expect(newSet.has(1)).toBe(false);
+      expect(newSet.has(3)).toBe(true);
+    });
+
+    it("disables unchecked checkboxes when 3 are selected (max)", () => {
+      render(
+        <ScreenerTable
+          {...defaultProps}
+          selectedNetuids={new Set([1, 3, 19])}
+          onSelectionChange={vi.fn()}
+        />
+      );
+      // All 3 are checked, so none should be disabled
+      const checkboxes = screen.getAllByRole("checkbox");
+      checkboxes.forEach((cb) => expect(cb).not.toBeDisabled());
+    });
+
+    it("disables unchecked checkboxes when 3 already selected and a 4th exists", () => {
+      const subnets = [
+        mockSubnet({ netuid: 1 }),
+        mockSubnet({ netuid: 3 }),
+        mockSubnet({ netuid: 19 }),
+        mockSubnet({ netuid: 42 }),
+      ];
+      render(
+        <ScreenerTable
+          {...defaultProps}
+          subnets={subnets}
+          selectedNetuids={new Set([1, 3, 19])}
+          onSelectionChange={vi.fn()}
+        />
+      );
+      const cb42 = screen.getByLabelText("Select SN42 for comparison");
+      expect(cb42).toBeDisabled();
+    });
+
+    it("does not call onSelectionChange when disabled checkbox clicked", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const subnets = [
+        mockSubnet({ netuid: 1 }),
+        mockSubnet({ netuid: 3 }),
+        mockSubnet({ netuid: 19 }),
+        mockSubnet({ netuid: 42 }),
+      ];
+      render(
+        <ScreenerTable
+          {...defaultProps}
+          subnets={subnets}
+          selectedNetuids={new Set([1, 3, 19])}
+          onSelectionChange={onChange}
+        />
+      );
+      const cb42 = screen.getByLabelText("Select SN42 for comparison");
+      await user.click(cb42);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
 });

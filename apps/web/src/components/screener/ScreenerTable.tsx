@@ -18,6 +18,8 @@ interface ScreenerTableProps {
   isError: boolean;
   error: Error | null;
   onRetry: () => void;
+  selectedNetuids?: Set<number>;
+  onSelectionChange?: (netuids: Set<number>) => void;
 }
 
 type ColumnDef = {
@@ -75,13 +77,29 @@ function SkeletonRows() {
   );
 }
 
+const MAX_COMPARE = 3;
+
 export function ScreenerTable({
   subnets,
   isLoading,
   isError,
   error,
   onRetry,
+  selectedNetuids,
+  onSelectionChange,
 }: ScreenerTableProps) {
+  const selectable = selectedNetuids !== undefined && onSelectionChange !== undefined;
+
+  function handleToggle(netuid: number) {
+    if (!selectedNetuids || !onSelectionChange) return;
+    const next = new Set(selectedNetuids);
+    if (next.has(netuid)) {
+      next.delete(netuid);
+    } else if (next.size < MAX_COMPARE) {
+      next.add(netuid);
+    }
+    onSelectionChange(next);
+  }
   const [sort, setSort] = useState<SortState>({
     field: "emission_share",
     direction: "desc",
@@ -130,6 +148,11 @@ export function ScreenerTable({
       <table className="w-full text-sm" role="table">
         <thead>
           <tr className="border-b border-border text-left text-text-secondary">
+            {selectable && (
+              <th className="w-10 px-3 py-3">
+                <span className="sr-only">Select</span>
+              </th>
+            )}
             {COLUMNS.map((col) => (
               <th
                 key={col.key}
@@ -158,6 +181,21 @@ export function ScreenerTable({
                 key={subnet.netuid}
                 className="border-b border-border transition-colors hover:bg-zinc-800/50"
               >
+                {selectable && (
+                  <td className="px-3 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedNetuids!.has(subnet.netuid)}
+                      disabled={
+                        !selectedNetuids!.has(subnet.netuid) &&
+                        selectedNetuids!.size >= MAX_COMPARE
+                      }
+                      onChange={() => handleToggle(subnet.netuid)}
+                      aria-label={`Select SN${subnet.netuid} for comparison`}
+                      className="h-4 w-4 cursor-pointer rounded border-zinc-600 bg-transparent text-violet-600 focus:ring-violet-500"
+                    />
+                  </td>
+                )}
                 <td className="px-3 py-3">
                   <Link
                     href={`/subnets/${subnet.netuid}`}
