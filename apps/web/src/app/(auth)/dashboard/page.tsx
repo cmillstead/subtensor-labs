@@ -26,15 +26,18 @@ import { TimeRangeSelector } from "@/components/common/TimeRangeSelector";
 import { ExportCsvButton } from "@/components/portfolio/ExportCsvButton";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { usePortfolioHistory } from "@/hooks/usePortfolioHistory";
-import { usePersistedAddresses } from "@/hooks/usePersistedAddresses";
+import { useAddresses } from "@/hooks/useAddresses";
 import type { TimeRange } from "@/types";
 
 function DashboardContent() {
   const {
     addresses: labeledAddresses,
     setAddresses: setLabeledAddresses,
+    addAddress,
+    removeAddress,
+    updateLabel,
     hydrated,
-  } = usePersistedAddresses();
+  } = useAddresses();
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
 
   // Extract plain address strings for API hooks
@@ -60,6 +63,9 @@ function DashboardContent() {
       <AddressManager
         addresses={labeledAddresses}
         onAddressesChange={setLabeledAddresses}
+        onAdd={addAddress}
+        onRemove={removeAddress}
+        onUpdateLabel={updateLabel}
       />
 
       {hydrated && addressStrings.length > 0 && (

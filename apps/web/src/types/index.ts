@@ -26,6 +26,15 @@ export interface NavRoute {
   label: string;
 }
 
+/** A server-persisted address with database ID */
+export interface ServerAddress {
+  id: number;
+  coldkey_address: string;
+  label: string | null;
+  is_watch_only: boolean;
+  created_at: string;
+}
+
 /** Ticker bar data from engine health/market endpoint */
 export interface TickerData {
   tao_price_usd: number | null;
