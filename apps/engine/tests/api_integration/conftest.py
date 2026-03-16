@@ -21,7 +21,10 @@ import engine.models  # noqa: E402, F401
 from engine.core.database import Base, get_session  # noqa: E402
 from engine.main import app  # noqa: E402
 
-TEST_DB_URL = "postgresql+asyncpg://tao:tao@localhost:5432/subtensor_labs_test"
+TEST_DB_URL = os.environ.get(
+    "ENGINE_DATABASE_URL",
+    "postgresql+asyncpg://tao:tao@localhost:5432/subtensor_labs_test",
+)
 
 # All tables to truncate between tests (add new tables here as they're used)
 _ALL_TABLES = (
