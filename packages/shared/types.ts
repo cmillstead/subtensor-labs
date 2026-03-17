@@ -297,3 +297,60 @@ export interface SavedScreener {
   created_at: string;
   updated_at: string;
 }
+
+/** A single TAO rebalancing move within a scenario */
+export interface ScenarioMove {
+  source_netuid: number;
+  dest_netuid: number;
+  amount_tao: number;
+}
+
+/** A single scenario with a label and moves */
+export interface ScenarioInput {
+  label: string | null;
+  moves: ScenarioMove[];
+}
+
+/** Request for scenario comparison calculation */
+export interface ScenarioCalcRequest {
+  coldkey_addresses: string[];
+  scenarios: ScenarioInput[];
+  horizon: number;
+}
+
+/** Per-subnet allocation and yield within a scenario outcome */
+export interface SubnetAllocation {
+  netuid: number;
+  stake_tao: number;
+  allocation_pct: number;
+  projected_yield_tao: number;
+  confidence_68_lower: number;
+  confidence_68_upper: number;
+  alpha_price: number | null;
+  alpha_exposure_tao: number | null;
+}
+
+/** Full outcome for a single scenario (or the baseline) */
+export interface ScenarioOutcome {
+  label: string | null;
+  allocations: SubnetAllocation[];
+  total_staked_tao: number;
+  total_projected_yield_tao: number;
+  total_confidence_68_lower: number;
+  total_confidence_68_upper: number;
+  total_alpha_exposure_tao: number;
+  hhi: number;
+  yield_delta_tao: number;
+  yield_delta_pct: number;
+}
+
+/** Complete scenario comparison response */
+export interface ScenarioComparisonResult {
+  baseline: ScenarioOutcome;
+  scenarios: ScenarioOutcome[];
+  best_yield_index: number;
+  best_diversification_index: number;
+  horizon_days: number;
+  caveat: string;
+  last_computed: string;
+}

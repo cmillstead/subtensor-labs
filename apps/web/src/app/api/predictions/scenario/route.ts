@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.text();
   return forwardToEngine(
-    "/engine/predictions/yield",
+    "/engine/predictions/scenario",
     "POST",
     session.user.id,
     session.user.premiumStatus,
