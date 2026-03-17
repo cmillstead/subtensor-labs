@@ -8,7 +8,12 @@ import {
   YieldProjector,
   YieldProjectorSkeleton,
 } from "@/components/predictions/YieldProjector";
+import {
+  ScenarioCalculator,
+  ScenarioCalculatorSkeleton,
+} from "@/components/predictions/ScenarioCalculator";
 import { useYieldProjection } from "@/hooks/usePredictions";
+import { usePortfolio } from "@/hooks/usePortfolio";
 import { useAddresses } from "@/hooks/useAddresses";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +21,7 @@ type PredictionTab = "yield" | "scenario" | "emission" | "alpha";
 
 const TABS: { id: PredictionTab; label: string; enabled: boolean }[] = [
   { id: "yield", label: "Yield Projector", enabled: true },
-  { id: "scenario", label: "Scenario Calculator", enabled: false },
+  { id: "scenario", label: "Scenario Calculator", enabled: true },
   { id: "emission", label: "Emission Forecast", enabled: false },
   { id: "alpha", label: "Alpha Trends", enabled: false },
 ];
@@ -31,6 +36,23 @@ function PredictionsContent() {
   );
 
   const { data, isLoading, isError, error } = useYieldProjection(addressStrings);
+  const { data: portfolioData } = usePortfolio(addressStrings);
+
+  // Derive current stakes per subnet from portfolio positions
+  const { currentStakes, availableNetuids } = useMemo(() => {
+    const stakes: Record<number, number> = {};
+    if (portfolioData?.data?.positions) {
+      for (const pos of portfolioData.data.positions) {
+        stakes[pos.netuid] = (stakes[pos.netuid] ?? 0) + pos.staked_tao;
+      }
+    }
+    const netuids = Object.keys(stakes)
+      .map(Number)
+      .sort((a, b) => a - b);
+    return { currentStakes: stakes, availableNetuids: netuids };
+  }, [portfolioData]);
+
+  const noAddresses = hydrated && addressStrings.length === 0;
 
   return (
     <div className="space-y-6">
@@ -82,7 +104,7 @@ function PredictionsContent() {
       {/* Yield Projector tab content */}
       {activeTab === "yield" && (
         <PremiumGate featureName="Yield Projector">
-          {hydrated && addressStrings.length === 0 && (
+          {noAddresses && (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
               <p className="text-lg text-text-secondary">
                 No addresses connected
@@ -121,6 +143,34 @@ function PredictionsContent() {
               totalStakedTao={data.data.total_staked_tao}
               subnetsAnalyzed={data.data.subnets_analyzed}
               subnetsSkipped={data.data.subnets_skipped}
+            />
+          )}
+        </PremiumGate>
+      )}
+
+      {/* Scenario Calculator tab content */}
+      {activeTab === "scenario" && (
+        <PremiumGate featureName="Scenario Calculator">
+          {noAddresses ? (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
+              <p className="text-lg text-text-secondary">
+                No addresses connected
+              </p>
+              <p className="mt-1 text-sm text-text-muted">
+                Add coldkey addresses in your{" "}
+                <a href="/dashboard" className="text-violet-400 underline">
+                  Portfolio Dashboard
+                </a>{" "}
+                to use the scenario calculator.
+              </p>
+            </div>
+          ) : availableNetuids.length === 0 ? (
+            <ScenarioCalculatorSkeleton />
+          ) : (
+            <ScenarioCalculator
+              addresses={addressStrings}
+              currentStakes={currentStakes}
+              availableNetuids={availableNetuids}
             />
           )}
         </PremiumGate>

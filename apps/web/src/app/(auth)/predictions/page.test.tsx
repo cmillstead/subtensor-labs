@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { SessionProvider } from "next-auth/react";
 import PredictionsPage from "./page";
 
@@ -29,7 +30,7 @@ vi.mock("@/hooks/useAddresses", () => ({
   })),
 }));
 
-// Mock usePredictions hook
+// mock-ok: hooks fetch from Bittensor backend API with no local sandbox
 vi.mock("@/hooks/usePredictions", () => ({
   useYieldProjection: vi.fn(() => ({
     data: null,
@@ -37,6 +38,30 @@ vi.mock("@/hooks/usePredictions", () => ({
     isError: false,
     error: null,
   })),
+}));
+
+// mock-ok: hook fetches from Bittensor backend API with no local sandbox
+vi.mock("@/hooks/usePortfolio", () => ({
+  usePortfolio: vi.fn(() => ({
+    data: {
+      data: {
+        positions: [
+          { netuid: 1, staked_tao: 100 },
+          { netuid: 3, staked_tao: 50 },
+        ],
+      },
+    },
+    isLoading: false,
+    isError: false,
+  })),
+}));
+
+// mock-ok: page-level test verifies tab integration, not component internals
+vi.mock("@/components/predictions/ScenarioCalculator", () => ({
+  ScenarioCalculator: () => (
+    <div data-testid="scenario-calculator">Scenario Calculator Content</div>
+  ),
+  ScenarioCalculatorSkeleton: () => <div>Loading scenario...</div>,
 }));
 
 describe("PredictionsPage", () => {
@@ -76,8 +101,55 @@ describe("PredictionsPage", () => {
         <PredictionsPage />
       </SessionProvider>,
     );
+    const emissionTab = screen.getByRole("tab", { name: /Emission Forecast/ });
+    expect(emissionTab).toBeDisabled();
+    const alphaTab = screen.getByRole("tab", { name: /Alpha Trends/ });
+    expect(alphaTab).toBeDisabled();
+  });
+
+  it("scenario calculator tab is enabled", () => {
+    render(
+      <SessionProvider>
+        <PredictionsPage />
+      </SessionProvider>,
+    );
     const scenarioTab = screen.getByRole("tab", { name: /Scenario Calculator/ });
-    expect(scenarioTab).toBeDisabled();
+    expect(scenarioTab).toBeEnabled();
+    expect(scenarioTab).not.toHaveTextContent("Soon");
+  });
+
+  it("clicking scenario calculator tab renders scenario content", async () => {
+    // Override useAddresses to provide addresses so ScenarioCalculator renders
+    const { useAddresses } = await import("@/hooks/useAddresses");
+    vi.mocked(useAddresses).mockReturnValue({
+      addresses: [{ address: "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty", label: "Main" }],
+      hydrated: true,
+      setAddresses: vi.fn(),
+      addAddress: vi.fn(),
+      removeAddress: vi.fn(),
+      updateLabel: vi.fn(),
+    } as ReturnType<typeof useAddresses>);
+
+    const user = userEvent.setup();
+    render(
+      <SessionProvider>
+        <PredictionsPage />
+      </SessionProvider>,
+    );
+    const scenarioTab = screen.getByRole("tab", { name: /Scenario Calculator/ });
+    await user.click(scenarioTab);
+    expect(scenarioTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("scenario-calculator")).toBeInTheDocument();
+
+    // Restore default mock for subsequent tests
+    vi.mocked(useAddresses).mockReturnValue({
+      addresses: [],
+      hydrated: true,
+      setAddresses: vi.fn(),
+      addAddress: vi.fn(),
+      removeAddress: vi.fn(),
+      updateLabel: vi.fn(),
+    } as ReturnType<typeof useAddresses>);
   });
 
   it("yield projector tab is selected by default", () => {

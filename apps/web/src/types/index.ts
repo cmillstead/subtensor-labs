@@ -24,6 +24,12 @@ export type {
   SubnetYieldProjection,
   HorizonProjection,
   YieldProjectionResult,
+  ScenarioMove,
+  ScenarioInput,
+  ScenarioCalcRequest,
+  SubnetAllocation,
+  ScenarioOutcome,
+  ScenarioComparisonResult,
 } from "@subtensor-labs/shared";
 
 /** Navigation route definition for the app shell */

@@ -249,3 +249,249 @@ class TestYieldProjectionEndpoint:
         # Second request — should be cache hit
         response2 = await client.post("/engine/predictions/yield", json=payload)
         assert response2.json()["meta"]["cache_hit"] is True
+
+
+@pytest.fixture
+async def seed_scenario_data(db_engine):
+    """Seed data for scenario tests: 2 subnets (SN1, SN3) with emission history + stake."""
+    base_time = datetime.now(UTC) - timedelta(days=30)
+
+    async with AsyncSession(db_engine, expire_on_commit=False) as session:
+        # Emission records for SN1 and SN3 — 30 days
+        for i in range(30):
+            t = base_time + timedelta(days=i)
+            for netuid, base_emission in [(1, 5.0), (3, 3.0)]:
+                await session.execute(
+                    text(
+                        "INSERT INTO emission_records"
+                        " (time, netuid, emission_tao,"
+                        " emission_share_pct, net_tao_inflow,"
+                        " cumulative_stake)"
+                        " VALUES (:t, :netuid, :emission_tao,"
+                        " :emission_share_pct, :net_tao_inflow,"
+                        " :cumulative_stake)"
+                    ),
+                    {
+                        "t": t,
+                        "netuid": netuid,
+                        "emission_tao": 10.0 + i * 0.1,
+                        "emission_share_pct": base_emission + i * 0.05,
+                        "net_tao_inflow": 50.0 + i,
+                        "cumulative_stake": 1000.0 + i * 10,
+                    },
+                )
+
+        # Subnet snapshots for SN1 and SN3
+        for netuid, alpha_price, take_rate in [(1, 0.12, 0.10), (3, 0.08, 0.05)]:
+            await session.execute(
+                text("""
+                    INSERT INTO subnet_snapshots
+                        (time, netuid, miner_count, validator_count, emission_share,
+                         registration_cost, alpha_price, alpha_market_cap,
+                         tao_reserves, alpha_reserves, fill_rate, owner_take_rate)
+                    VALUES (NOW(), :netuid, 100, 50, 0.065, 1.5, :alpha_price, 1200.0,
+                            500.0, 4000.0, 0.78, :take_rate)
+                """),
+                {"netuid": netuid, "alpha_price": alpha_price, "take_rate": take_rate},
+            )
+
+        # Metagraph entries — user stakes 300 on SN1, 200 on SN3
+        addr = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+        for netuid, uid, stake in [(1, 0, 300.0), (3, 1, 200.0)]:
+            await session.execute(
+                text(
+                    "INSERT INTO metagraph_entries"
+                    " (time, netuid, uid, hotkey, coldkey,"
+                    " stake, incentive, trust, dividends,"
+                    " is_active)"
+                    " VALUES"
+                    " (NOW(), :netuid, :uid,"
+                    " '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',"
+                    " :addr, :stake, 0.5, 0.8, 0.3, true)"
+                ),
+                {"netuid": netuid, "uid": uid, "addr": addr, "stake": stake},
+            )
+
+        await session.commit()
+
+    return {"address": addr}
+
+
+class TestScenarioEndpoint:
+    """Integration tests for POST /engine/predictions/scenario."""
+
+    async def test_returns_200_with_comparison(
+        self, client: AsyncClient, seed_scenario_data: dict
+    ) -> None:
+        """Should compute scenario comparison from seeded data."""
+        response = await client.post(
+            "/engine/predictions/scenario",
+            json={
+                "coldkey_addresses": [seed_scenario_data["address"]],
+                "scenarios": [
+                    {
+                        "label": "Move to SN3",
+                        "moves": [{"source_netuid": 1, "dest_netuid": 3, "amount_tao": 100}],
+                    },
+                ],
+                "horizon": 30,
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert "data" in body
+        assert "meta" in body
+
+        data = body["data"]
+        assert data["horizon_days"] == 30
+        assert data["baseline"]["label"] == "Current"
+        assert len(data["scenarios"]) == 1
+        assert data["scenarios"][0]["label"] == "Move to SN3"
+
+    async def test_baseline_reflects_current_stakes(
+        self, client: AsyncClient, seed_scenario_data: dict
+    ) -> None:
+        """Baseline should show current allocation across SN1 and SN3."""
+        response = await client.post(
+            "/engine/predictions/scenario",
+            json={
+                "coldkey_addresses": [seed_scenario_data["address"]],
+                "scenarios": [
+                    {"moves": [{"source_netuid": 1, "dest_netuid": 3, "amount_tao": 50}]},
+                ],
+                "horizon": 30,
+            },
+        )
+        baseline = response.json()["data"]["baseline"]
+        assert baseline["total_staked_tao"] == pytest.approx(500.0)
+        netuids = {a["netuid"] for a in baseline["allocations"]}
+        assert netuids == {1, 3}
+
+    async def test_yield_delta_computed(
+        self, client: AsyncClient, seed_scenario_data: dict
+    ) -> None:
+        """Scenario outcome should have yield_delta relative to baseline."""
+        response = await client.post(
+            "/engine/predictions/scenario",
+            json={
+                "coldkey_addresses": [seed_scenario_data["address"]],
+                "scenarios": [
+                    {"moves": [{"source_netuid": 1, "dest_netuid": 3, "amount_tao": 100}]},
+                ],
+                "horizon": 30,
+            },
+        )
+        scenario = response.json()["data"]["scenarios"][0]
+        # yield_delta should be non-zero (moving stake changes projected yield)
+        assert scenario["yield_delta_tao"] != 0.0
+
+    async def test_multiple_scenarios(self, client: AsyncClient, seed_scenario_data: dict) -> None:
+        """Should handle 3 scenarios simultaneously and pick best yield/diversification."""
+        response = await client.post(
+            "/engine/predictions/scenario",
+            json={
+                "coldkey_addresses": [seed_scenario_data["address"]],
+                "scenarios": [
+                    {
+                        "label": "Aggressive",
+                        "moves": [{"source_netuid": 1, "dest_netuid": 3, "amount_tao": 200}],
+                    },
+                    {
+                        "label": "Moderate",
+                        "moves": [{"source_netuid": 1, "dest_netuid": 3, "amount_tao": 100}],
+                    },
+                    {
+                        "label": "Conservative",
+                        "moves": [{"source_netuid": 1, "dest_netuid": 3, "amount_tao": 50}],
+                    },
+                ],
+                "horizon": 60,
+            },
+        )
+        data = response.json()["data"]
+        assert len(data["scenarios"]) == 3
+        assert data["best_yield_index"] in range(3)
+        assert data["best_diversification_index"] in range(3)
+
+    async def test_envelope_format(self, client: AsyncClient, seed_scenario_data: dict) -> None:
+        """Response follows {data, meta} envelope."""
+        response = await client.post(
+            "/engine/predictions/scenario",
+            json={
+                "coldkey_addresses": [seed_scenario_data["address"]],
+                "scenarios": [
+                    {"moves": [{"source_netuid": 1, "dest_netuid": 3, "amount_tao": 50}]},
+                ],
+                "horizon": 30,
+            },
+        )
+        body = response.json()
+        meta = body["meta"]
+        assert "last_updated" in meta
+        assert "compute_ms" in meta
+        assert "cache_hit" in meta
+
+    async def test_empty_portfolio_returns_empty_baseline(self, client: AsyncClient) -> None:
+        """Address with no stake returns empty baseline and no scenarios."""
+        response = await client.post(
+            "/engine/predictions/scenario",
+            json={
+                "coldkey_addresses": ["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"],
+                "scenarios": [
+                    {"moves": [{"source_netuid": 1, "dest_netuid": 3, "amount_tao": 50}]},
+                ],
+                "horizon": 30,
+            },
+        )
+        data = response.json()["data"]
+        assert data["baseline"]["total_staked_tao"] == 0.0
+        assert data["baseline"]["allocations"] == []
+        assert data["scenarios"] == []
+
+    async def test_validates_invalid_scenario_request(self, client: AsyncClient) -> None:
+        """Should reject invalid scenario requests (empty scenarios)."""
+        response = await client.post(
+            "/engine/predictions/scenario",
+            json={
+                "coldkey_addresses": ["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"],
+                "scenarios": [],
+                "horizon": 30,
+            },
+        )
+        assert response.status_code == 422
+
+    async def test_alpha_exposure_in_allocations(
+        self, client: AsyncClient, seed_scenario_data: dict
+    ) -> None:
+        """Allocations should include alpha price and exposure."""
+        response = await client.post(
+            "/engine/predictions/scenario",
+            json={
+                "coldkey_addresses": [seed_scenario_data["address"]],
+                "scenarios": [
+                    {"moves": [{"source_netuid": 1, "dest_netuid": 3, "amount_tao": 50}]},
+                ],
+                "horizon": 30,
+            },
+        )
+        baseline = response.json()["data"]["baseline"]
+        sn1_alloc = next(a for a in baseline["allocations"] if a["netuid"] == 1)
+        assert sn1_alloc["alpha_price"] == pytest.approx(0.12)
+        assert sn1_alloc["alpha_exposure_tao"] == pytest.approx(300.0 * 0.12)
+
+    async def test_cache_hit_on_second_request(
+        self, client: AsyncClient, seed_scenario_data: dict
+    ) -> None:
+        """Second identical request should be a cache hit."""
+        payload = {
+            "coldkey_addresses": [seed_scenario_data["address"]],
+            "scenarios": [
+                {"moves": [{"source_netuid": 1, "dest_netuid": 3, "amount_tao": 75}]},
+            ],
+            "horizon": 30,
+        }
+        response1 = await client.post("/engine/predictions/scenario", json=payload)
+        assert response1.json()["meta"]["cache_hit"] is False
+
+        response2 = await client.post("/engine/predictions/scenario", json=payload)
+        assert response2.json()["meta"]["cache_hit"] is True
