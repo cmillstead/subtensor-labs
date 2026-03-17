@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation } from "@tanstack/react-query";
-import type { EngineResponse, YieldProjectionResult, PredictionHorizon, ScenarioCalcRequest, ScenarioComparisonResult } from "@/types";
+import type { EngineResponse, YieldProjectionResult, PredictionHorizon, ScenarioCalcRequest, ScenarioComparisonResult, EmissionForecastResult } from "@/types";
 
 async function fetchYieldProjection(
   addresses: string[],
@@ -62,5 +62,37 @@ export async function fetchScenarioCalculation(
 export function useScenarioCalculation() {
   return useMutation({
     mutationFn: fetchScenarioCalculation,
+  });
+}
+
+async function fetchEmissionForecast(
+  addresses: string[],
+): Promise<EngineResponse<EmissionForecastResult>> {
+  const response = await fetch("/api/predictions/emission", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      coldkey_addresses: addresses,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(
+      body?.error?.message ?? `Emission forecast request failed: ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+export function useEmissionForecast(addresses: string[]) {
+  return useQuery({
+    queryKey: ["predictions", "emission", ...addresses.toSorted()],
+    queryFn: () => fetchEmissionForecast(addresses),
+    enabled: addresses.length > 0,
+    staleTime: 60 * 60 * 1000, // 1 hour
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
 }

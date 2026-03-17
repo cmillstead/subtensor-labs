@@ -12,7 +12,11 @@ import {
   ScenarioCalculator,
   ScenarioCalculatorSkeleton,
 } from "@/components/predictions/ScenarioCalculator";
-import { useYieldProjection } from "@/hooks/usePredictions";
+import {
+  EmissionForecaster,
+  EmissionForecasterSkeleton,
+} from "@/components/predictions/EmissionForecaster";
+import { useYieldProjection, useEmissionForecast } from "@/hooks/usePredictions";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useAddresses } from "@/hooks/useAddresses";
 import { cn } from "@/lib/utils";
@@ -22,7 +26,7 @@ type PredictionTab = "yield" | "scenario" | "emission" | "alpha";
 const TABS: { id: PredictionTab; label: string; enabled: boolean }[] = [
   { id: "yield", label: "Yield Projector", enabled: true },
   { id: "scenario", label: "Scenario Calculator", enabled: true },
-  { id: "emission", label: "Emission Forecast", enabled: false },
+  { id: "emission", label: "Emission Forecast", enabled: true },
   { id: "alpha", label: "Alpha Trends", enabled: false },
 ];
 
@@ -36,6 +40,12 @@ function PredictionsContent() {
   );
 
   const { data, isLoading, isError, error } = useYieldProjection(addressStrings);
+  const {
+    data: emissionData,
+    isLoading: emissionLoading,
+    isError: emissionIsError,
+    error: emissionError,
+  } = useEmissionForecast(addressStrings);
   const { data: portfolioData } = usePortfolio(addressStrings);
 
   // Derive current stakes per subnet from portfolio positions
@@ -104,7 +114,7 @@ function PredictionsContent() {
       {/* Yield Projector tab content */}
       {activeTab === "yield" && (
         <PremiumGate featureName="Yield Projector">
-          {noAddresses && (
+          {noAddresses ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
               <p className="text-lg text-text-secondary">
                 No addresses connected
@@ -117,11 +127,9 @@ function PredictionsContent() {
                 to see yield projections.
               </p>
             </div>
-          )}
-
-          {isLoading && <YieldProjectorSkeleton />}
-
-          {isError && (
+          ) : isLoading ? (
+            <YieldProjectorSkeleton />
+          ) : isError ? (
             <div
               className="rounded-lg border border-error/30 bg-error/5 p-4"
               role="alert"
@@ -133,9 +141,7 @@ function PredictionsContent() {
                 Ensure your addresses have staking positions and try again.
               </p>
             </div>
-          )}
-
-          {data?.data && (
+          ) : data?.data ? (
             <YieldProjector
               chartData={data.data.chart_data}
               projections={data.data.projections}
@@ -144,7 +150,7 @@ function PredictionsContent() {
               subnetsAnalyzed={data.data.subnets_analyzed}
               subnetsSkipped={data.data.subnets_skipped}
             />
-          )}
+          ) : null}
         </PremiumGate>
       )}
 
@@ -173,6 +179,49 @@ function PredictionsContent() {
               availableNetuids={availableNetuids}
             />
           )}
+        </PremiumGate>
+      )}
+
+      {/* Emission Forecast tab content */}
+      {activeTab === "emission" && (
+        <PremiumGate featureName="Emission Forecast">
+          {noAddresses ? (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
+              <p className="text-lg text-text-secondary">
+                No addresses connected
+              </p>
+              <p className="mt-1 text-sm text-text-muted">
+                Add coldkey addresses in your{" "}
+                <a href="/dashboard" className="text-violet-400 underline">
+                  Portfolio Dashboard
+                </a>{" "}
+                to view emission forecasts.
+              </p>
+            </div>
+          ) : emissionLoading ? (
+            <EmissionForecasterSkeleton />
+          ) : emissionIsError ? (
+            <div
+              className="rounded-lg border border-error/30 bg-error/5 p-4"
+              role="alert"
+            >
+              <p className="text-sm text-error">
+                {emissionError?.message ?? "Failed to load emission forecast"}
+              </p>
+              <p className="mt-1 text-xs text-text-muted">
+                Ensure your addresses have staking positions and try again.
+              </p>
+            </div>
+          ) : emissionData?.data ? (
+            <EmissionForecaster
+              subnetForecasts={emissionData.data.subnet_forecasts}
+              halvingImpact={emissionData.data.halving_impact}
+              stakingMigration={emissionData.data.staking_migration}
+              caveat={emissionData.data.caveat}
+              subnetsAnalyzed={emissionData.data.subnets_analyzed}
+              subnetsSkipped={emissionData.data.subnets_skipped}
+            />
+          ) : null}
         </PremiumGate>
       )}
     </div>

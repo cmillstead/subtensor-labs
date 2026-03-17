@@ -495,3 +495,237 @@ class TestScenarioEndpoint:
 
         response2 = await client.post("/engine/predictions/scenario", json=payload)
         assert response2.json()["meta"]["cache_hit"] is True
+
+
+@pytest.fixture
+async def seed_emission_forecast_data(db_engine):
+    """Seed 30 days of emission records for netuids 1, 3, and 5 with varying
+    net_tao_inflow patterns (SN1 positive, SN3 negative, SN5 near-zero),
+    plus a subnet snapshot and metagraph entry.
+    """
+    base_time = datetime.now(UTC) - timedelta(days=30)
+
+    async with AsyncSession(db_engine, expire_on_commit=False) as session:
+        # Emission records — 30 days for SN1, SN3, SN5
+        for i in range(30):
+            t = base_time + timedelta(days=i)
+            for netuid, base_emission, inflow_sign in [
+                (1, 6.0, 1.0),  # SN1: positive inflow
+                (3, 4.0, -1.0),  # SN3: negative inflow (outflow)
+                (5, 2.0, 0.01),  # SN5: near-zero inflow
+            ]:
+                await session.execute(
+                    text(
+                        "INSERT INTO emission_records"
+                        " (time, netuid, emission_tao,"
+                        " emission_share_pct, net_tao_inflow,"
+                        " cumulative_stake)"
+                        " VALUES (:t, :netuid, :emission_tao,"
+                        " :emission_share_pct, :net_tao_inflow,"
+                        " :cumulative_stake)"
+                    ),
+                    {
+                        "t": t,
+                        "netuid": netuid,
+                        "emission_tao": 10.0 + i * 0.1,
+                        "emission_share_pct": base_emission + i * 0.05,
+                        "net_tao_inflow": inflow_sign * (50.0 + i),
+                        "cumulative_stake": 1000.0 + i * 10,
+                    },
+                )
+
+        # Subnet snapshot — latest for SN1
+        await session.execute(
+            text("""
+                INSERT INTO subnet_snapshots
+                    (time, netuid, miner_count, validator_count, emission_share,
+                     registration_cost, alpha_price, alpha_market_cap,
+                     tao_reserves, alpha_reserves, fill_rate, owner_take_rate)
+                VALUES (NOW(), 1, 100, 50, 0.065, 1.5, 0.12, 1200.0, 500.0, 4000.0, 0.78, 0.10)
+            """)
+        )
+
+        # Metagraph entry — user's stake on SN1
+        await session.execute(
+            text(
+                "INSERT INTO metagraph_entries"
+                " (time, netuid, uid, hotkey, coldkey,"
+                " stake, incentive, trust, dividends,"
+                " is_active)"
+                " VALUES"
+                " (NOW(), 1, 0,"
+                " '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',"
+                " '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',"
+                " 200.0, 0.5, 0.8, 0.3, true)"
+            )
+        )
+
+        await session.commit()
+
+    return {
+        "address": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+        "netuid": 1,
+        "stake": 200.0,
+    }
+
+
+class TestEmissionForecastEndpoint:
+    """Integration tests for POST /engine/predictions/emission."""
+
+    async def test_returns_200_with_forecast_data(
+        self, client: AsyncClient, seed_emission_forecast_data: dict
+    ) -> None:
+        """Should compute real emission forecast from seeded data."""
+        response = await client.post(
+            "/engine/predictions/emission",
+            json={
+                "coldkey_addresses": [seed_emission_forecast_data["address"]],
+                "horizons": [30],
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+
+        data = body["data"]
+        assert data["subnets_analyzed"] == 3
+        assert data["subnets_skipped"] == 0
+        assert len(data["subnet_forecasts"]) == 3
+        assert "halving_impact" in data
+        assert "staking_migration" in data
+
+    async def test_envelope_format(
+        self, client: AsyncClient, seed_emission_forecast_data: dict
+    ) -> None:
+        """Response follows {data, meta} envelope format."""
+        response = await client.post(
+            "/engine/predictions/emission",
+            json={
+                "coldkey_addresses": [seed_emission_forecast_data["address"]],
+                "horizons": [30],
+            },
+        )
+        body = response.json()
+
+        assert "data" in body
+        assert "meta" in body
+
+        data = body["data"]
+        assert "subnet_forecasts" in data
+        assert "halving_impact" in data
+        assert "staking_migration" in data
+        assert "caveat" in data
+        assert "last_computed" in data
+        assert "subnets_analyzed" in data
+        assert "subnets_skipped" in data
+
+        meta = body["meta"]
+        assert "last_updated" in meta
+        assert "compute_ms" in meta
+        assert "cache_hit" in meta
+
+    async def test_validates_invalid_addresses(self, client: AsyncClient) -> None:
+        """Should reject invalid SS58 addresses."""
+        response = await client.post(
+            "/engine/predictions/emission",
+            json={
+                "coldkey_addresses": ["not-a-valid-address"],
+                "horizons": [30],
+            },
+        )
+        assert response.status_code == 422
+
+    async def test_subnet_forecast_fields(
+        self, client: AsyncClient, seed_emission_forecast_data: dict
+    ) -> None:
+        """Each subnet forecast has netuid, ema_trend, momentum, chart_data."""
+        response = await client.post(
+            "/engine/predictions/emission",
+            json={
+                "coldkey_addresses": [seed_emission_forecast_data["address"]],
+                "horizons": [30],
+            },
+        )
+        body = response.json()
+        forecasts = body["data"]["subnet_forecasts"]
+        assert len(forecasts) >= 1
+
+        for forecast in forecasts:
+            assert "netuid" in forecast
+            assert forecast["ema_trend"] in ("rising", "falling", "stable")
+            assert isinstance(forecast["momentum"], float)
+            assert len(forecast["chart_data"]) == 30
+            # Chart data points have expected fields
+            point = forecast["chart_data"][0]
+            assert point["day"] == 1
+            assert "emission_share_pct" in point
+            assert "confidence_68_lower" in point
+            assert "confidence_95_upper" in point
+
+    async def test_halving_impact_fields(
+        self, client: AsyncClient, seed_emission_forecast_data: dict
+    ) -> None:
+        """halving_impact has blocks_remaining, estimated_days_remaining, emission fields."""
+        response = await client.post(
+            "/engine/predictions/emission",
+            json={
+                "coldkey_addresses": [seed_emission_forecast_data["address"]],
+                "horizons": [30],
+            },
+        )
+        halving = response.json()["data"]["halving_impact"]
+
+        assert "blocks_remaining" in halving
+        assert halving["blocks_remaining"] >= 0
+        assert "estimated_days_remaining" in halving
+        assert halving["estimated_days_remaining"] >= 0
+        assert "current_emission_per_day_tao" in halving
+        assert halving["current_emission_per_day_tao"] > 0
+        assert "post_halving_emission_per_day_tao" in halving
+        assert halving["post_halving_emission_per_day_tao"] == pytest.approx(
+            halving["current_emission_per_day_tao"] / 2.0
+        )
+        assert "estimated_yield_impact_pct" in halving
+        assert "estimated_yield_impact_tao" in halving
+
+    async def test_staking_migration_has_directions(
+        self, client: AsyncClient, seed_emission_forecast_data: dict
+    ) -> None:
+        """staking_migration entries have direction (inflow/outflow)."""
+        response = await client.post(
+            "/engine/predictions/emission",
+            json={
+                "coldkey_addresses": [seed_emission_forecast_data["address"]],
+                "horizons": [30],
+            },
+        )
+        migrations = response.json()["data"]["staking_migration"]
+        assert len(migrations) >= 1
+
+        directions_seen = set()
+        for entry in migrations:
+            assert entry["direction"] in ("inflow", "outflow")
+            assert "netuid" in entry
+            assert "net_tao_inflow_30d" in entry
+            assert "avg_daily_inflow" in entry
+            directions_seen.add(entry["direction"])
+
+        # SN1 has positive inflow, SN3 has negative (outflow)
+        assert "inflow" in directions_seen
+        assert "outflow" in directions_seen
+
+    async def test_cache_hit_on_second_request(
+        self, client: AsyncClient, seed_emission_forecast_data: dict
+    ) -> None:
+        """Second identical request should be a cache hit."""
+        payload = {
+            "coldkey_addresses": [seed_emission_forecast_data["address"]],
+            "horizons": [30],
+        }
+
+        # First request — cache miss
+        response1 = await client.post("/engine/predictions/emission", json=payload)
+        assert response1.json()["meta"]["cache_hit"] is False
+
+        # Second request — should be cache hit
+        response2 = await client.post("/engine/predictions/emission", json=payload)
+        assert response2.json()["meta"]["cache_hit"] is True

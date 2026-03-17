@@ -3,30 +3,8 @@
 from engine.portfolio.positions import compute_position_details, compute_totals
 from engine.schemas.portfolio import SubnetPositionSchema
 
-HOTKEY_1 = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
-HOTKEY_2 = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
-
-
-def _entry(
-    netuid: int = 1,
-    hotkey: str = HOTKEY_1,
-    stake: float = 100.0,
-    incentive: float = 0.0,
-    trust: float = 0.9,
-    dividends: float = 0.1,
-    is_active: bool = True,
-    emission_share: float = 0.05,
-) -> dict:
-    return {
-        "netuid": netuid,
-        "hotkey": hotkey,
-        "stake": stake,
-        "incentive": incentive,
-        "trust": trust,
-        "dividends": dividends,
-        "is_active": is_active,
-        "emission_share": emission_share,
-    }
+from .conftest import HOTKEY_1, HOTKEY_2
+from .conftest import make_position_entry as _entry
 
 
 class TestComputePositionDetails:
@@ -121,14 +99,28 @@ class TestComputeTotals:
     def test_multiple_positions(self) -> None:
         positions = [
             SubnetPositionSchema(
-                netuid=1, hotkey=HOTKEY_1, staked_tao=100.0, alpha_value_tao=50.0,
-                emission_share=0.0, incentive=0.0, trust=0.0, dividends=0.0,
-                is_active=True, is_miner=False,
+                netuid=1,
+                hotkey=HOTKEY_1,
+                staked_tao=100.0,
+                alpha_value_tao=50.0,
+                emission_share=0.0,
+                incentive=0.0,
+                trust=0.0,
+                dividends=0.0,
+                is_active=True,
+                is_miner=False,
             ),
             SubnetPositionSchema(
-                netuid=2, hotkey=HOTKEY_2, staked_tao=200.0, alpha_value_tao=30.0,
-                emission_share=0.0, incentive=0.0, trust=0.0, dividends=0.0,
-                is_active=True, is_miner=False,
+                netuid=2,
+                hotkey=HOTKEY_2,
+                staked_tao=200.0,
+                alpha_value_tao=30.0,
+                emission_share=0.0,
+                incentive=0.0,
+                trust=0.0,
+                dividends=0.0,
+                is_active=True,
+                is_miner=False,
             ),
         ]
         staked, alpha, total = compute_totals(positions)
