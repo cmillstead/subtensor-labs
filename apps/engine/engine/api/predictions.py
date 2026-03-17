@@ -8,9 +8,11 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from engine.core.logging import get_logger
+from engine.predictions.emission_forecaster import compute_emission_forecast
 from engine.predictions.scenario_engine import compute_scenario
 from engine.predictions.yield_projector import compute_yield_projection
 from engine.schemas.predictions import (
+    EmissionForecastRequestSchema,
     ScenarioCalcRequestSchema,
     YieldProjectionRequestSchema,
 )
@@ -89,6 +91,48 @@ async def scenario_calculation(
 
     body: dict[str, Any] = {
         "data": comparison.model_dump(),
+        "meta": {
+            "last_updated": datetime.now(UTC).isoformat(),
+            "cache_hit": cache_hit,
+            "compute_ms": compute_ms,
+        },
+    }
+    return JSONResponse(status_code=200, content=body)
+
+
+@router.post("/emission")
+async def emission_forecast(
+    request_body: EmissionForecastRequestSchema, request: Request
+) -> JSONResponse:
+    """Compute emission trajectory forecast.
+
+    Projects per-subnet emission share using EMA trends, computes halving
+    impact and staking migration data.
+    """
+    start = time.monotonic()
+    user_id = _user_id_from_request(request, request_body.coldkey_addresses)
+
+    try:
+        forecast, cache_hit = await compute_emission_forecast(
+            user_id=user_id,
+            request_body=request_body,
+        )
+    except Exception:
+        log.exception("emission_computation_failed", user_id=user_id)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": {
+                    "type": "computation_failed",
+                    "message": "Emission forecast computation failed unexpectedly",
+                    "code": 500,
+                }
+            },
+        )
+    compute_ms = int((time.monotonic() - start) * 1000)
+
+    body: dict[str, Any] = {
+        "data": forecast.model_dump(),
         "meta": {
             "last_updated": datetime.now(UTC).isoformat(),
             "cache_hit": cache_hit,

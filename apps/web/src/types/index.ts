@@ -30,6 +30,11 @@ export type {
   SubnetAllocation,
   ScenarioOutcome,
   ScenarioComparisonResult,
+  SubnetEmissionForecastPoint,
+  SubnetEmissionForecast,
+  HalvingImpact,
+  SubnetStakingMigration,
+  EmissionForecastResult,
 } from "@subtensor-labs/shared";
 
 /** Navigation route definition for the app shell */

@@ -354,3 +354,53 @@ export interface ScenarioComparisonResult {
   caveat: string;
   last_computed: string;
 }
+
+/** Per-subnet emission share forecast point */
+export interface SubnetEmissionForecastPoint {
+  day: number;
+  emission_share_pct: number;
+  confidence_68_lower: number;
+  confidence_68_upper: number;
+  confidence_95_lower: number;
+  confidence_95_upper: number;
+}
+
+/** Per-subnet emission forecast */
+export interface SubnetEmissionForecast {
+  netuid: number;
+  subnet_name: string | null;
+  current_emission_share_pct: number;
+  ema_trend: "rising" | "falling" | "stable";
+  momentum: number;
+  chart_data: SubnetEmissionForecastPoint[];
+}
+
+/** Halving impact estimate */
+export interface HalvingImpact {
+  blocks_remaining: number;
+  estimated_days_remaining: number;
+  current_emission_per_day_tao: number;
+  post_halving_emission_per_day_tao: number;
+  estimated_yield_impact_pct: number;
+  estimated_yield_impact_tao: number;
+}
+
+/** Staking migration data for a single subnet */
+export interface SubnetStakingMigration {
+  netuid: number;
+  subnet_name: string | null;
+  net_tao_inflow_30d: number;
+  avg_daily_inflow: number;
+  direction: "inflow" | "outflow";
+}
+
+/** Complete emission forecast response */
+export interface EmissionForecastResult {
+  subnet_forecasts: SubnetEmissionForecast[];
+  halving_impact: HalvingImpact;
+  staking_migration: SubnetStakingMigration[];
+  caveat: string;
+  last_computed: string;
+  subnets_analyzed: number;
+  subnets_skipped: number;
+}

@@ -1,6 +1,6 @@
 """Tests for multi-address portfolio aggregation."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch  # mock-ok: Redis + Bittensor RPC no local test mode
 
 from engine.portfolio.aggregator import (
     _deserialize_coldkey_portfolio,
@@ -8,54 +8,19 @@ from engine.portfolio.aggregator import (
     _serialize_coldkey_portfolio,
     aggregate_portfolio,
 )
-from engine.schemas.portfolio import (
-    ColdkeyPortfolioSchema,
-    SubnetPositionSchema,
+
+from .conftest import (
+    COLDKEY_1,
+    COLDKEY_2,
+    HOTKEY_1,
+    HOTKEY_2,
 )
-
-COLDKEY_1 = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
-COLDKEY_2 = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
-HOTKEY_1 = "5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy"
-HOTKEY_2 = "5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw"
-
-
-def _pos(
-    netuid: int = 1,
-    hotkey: str = HOTKEY_1,
-    staked: float = 100.0,
-    alpha: float = 50.0,
-) -> SubnetPositionSchema:
-    return SubnetPositionSchema(
-        netuid=netuid,
-        hotkey=hotkey,
-        staked_tao=staked,
-        alpha_value_tao=alpha,
-        emission_share=0.05,
-        incentive=0.0,
-        trust=0.9,
-        dividends=0.1,
-        is_active=True,
-        is_miner=False,
-    )
-
-
-def _coldkey_portfolio(
-    coldkey: str = COLDKEY_1,
-    positions: list[SubnetPositionSchema] | None = None,
-) -> ColdkeyPortfolioSchema:
-    if positions is None:
-        positions = [_pos()]
-    staked = sum(p.staked_tao for p in positions)
-    alpha = sum(p.alpha_value_tao for p in positions)
-    netuids = {p.netuid for p in positions}
-    return ColdkeyPortfolioSchema(
-        coldkey=coldkey,
-        total_value_tao=staked + alpha,
-        total_staked_tao=staked,
-        total_alpha_value_tao=alpha,
-        positions=positions,
-        subnets_exposed=len(netuids),
-    )
+from .conftest import (
+    make_coldkey_portfolio as _coldkey_portfolio,
+)
+from .conftest import (
+    make_position as _pos,
+)
 
 
 class TestSerializationRoundtrip:

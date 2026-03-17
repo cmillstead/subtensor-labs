@@ -1,7 +1,7 @@
 """Pydantic v2 request/response schemas for predictions (yield + scenario)."""
 
 import re
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import field_validator
 
@@ -221,3 +221,90 @@ class ScenarioComparisonResponseSchema(BaseSchema):
     horizon_days: int
     caveat: str = YIELD_CAVEAT
     last_computed: str
+
+
+# --- Emission Forecast Schemas ---
+
+
+class EmissionForecastRequestSchema(BaseSchema):
+    """Request schema for emission trajectory forecast."""
+
+    coldkey_addresses: list[str]
+    horizons: list[int] = [30, 60, 90]
+
+    @field_validator("coldkey_addresses")
+    @classmethod
+    def validate_addresses(cls, v: list[str]) -> list[str]:
+        if not v:
+            raise ValueError("At least one coldkey address is required")
+        if len(v) > _MAX_ADDRESSES:
+            raise ValueError(f"Maximum {_MAX_ADDRESSES} addresses allowed")
+        for addr in v:
+            if not _SS58_PATTERN.match(addr):
+                raise ValueError(f"Invalid SS58 address format: {addr}")
+        return v
+
+    @field_validator("horizons")
+    @classmethod
+    def validate_horizons(cls, v: list[int]) -> list[int]:
+        if not v:
+            raise ValueError("At least one horizon is required")
+        for h in v:
+            if h not in _VALID_HORIZONS:
+                raise ValueError(f"Invalid horizon {h}, must be one of {_VALID_HORIZONS}")
+        return sorted(v)
+
+
+class SubnetEmissionForecastPointSchema(BaseSchema):
+    """A single point in the emission share forecast time-series."""
+
+    day: int
+    emission_share_pct: float
+    confidence_68_lower: float
+    confidence_68_upper: float
+    confidence_95_lower: float
+    confidence_95_upper: float
+
+
+class SubnetEmissionForecastSchema(BaseSchema):
+    """Per-subnet emission share forecast with EMA trend."""
+
+    netuid: int
+    subnet_name: str | None = None
+    current_emission_share_pct: float
+    ema_trend: Literal["rising", "falling", "stable"]
+    momentum: float  # EMA daily delta
+    chart_data: list[SubnetEmissionForecastPointSchema]
+
+
+class HalvingImpactSchema(BaseSchema):
+    """Halving countdown and yield impact estimate."""
+
+    blocks_remaining: int
+    estimated_days_remaining: float
+    current_emission_per_day_tao: float
+    post_halving_emission_per_day_tao: float
+    estimated_yield_impact_pct: float
+    estimated_yield_impact_tao: float
+
+
+class SubnetStakingMigrationSchema(BaseSchema):
+    """Staking migration data for a single subnet."""
+
+    netuid: int
+    subnet_name: str | None = None
+    net_tao_inflow_30d: float
+    avg_daily_inflow: float
+    direction: Literal["inflow", "outflow"]
+
+
+class EmissionForecastResponseSchema(BaseSchema):
+    """Complete emission trajectory forecast response."""
+
+    subnet_forecasts: list[SubnetEmissionForecastSchema]
+    halving_impact: HalvingImpactSchema
+    staking_migration: list[SubnetStakingMigrationSchema]
+    caveat: str = YIELD_CAVEAT
+    last_computed: str
+    subnets_analyzed: int
+    subnets_skipped: int

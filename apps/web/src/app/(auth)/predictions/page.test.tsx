@@ -38,6 +38,12 @@ vi.mock("@/hooks/usePredictions", () => ({
     isError: false,
     error: null,
   })),
+  useEmissionForecast: vi.fn(() => ({
+    data: null,
+    isLoading: false,
+    isError: false,
+    error: null,
+  })),
 }));
 
 // mock-ok: hook fetches from Bittensor backend API with no local sandbox
@@ -62,6 +68,14 @@ vi.mock("@/components/predictions/ScenarioCalculator", () => ({
     <div data-testid="scenario-calculator">Scenario Calculator Content</div>
   ),
   ScenarioCalculatorSkeleton: () => <div>Loading scenario...</div>,
+}));
+
+// mock-ok: page-level test verifies tab integration, not component internals
+vi.mock("@/components/predictions/EmissionForecaster", () => ({
+  EmissionForecaster: () => (
+    <div data-testid="emission-forecaster">Emission Forecast Content</div>
+  ),
+  EmissionForecasterSkeleton: () => <div>Loading emission...</div>,
 }));
 
 describe("PredictionsPage", () => {
@@ -101,8 +115,10 @@ describe("PredictionsPage", () => {
         <PredictionsPage />
       </SessionProvider>,
     );
+    // Emission Forecast tab is now enabled (story 6.3)
     const emissionTab = screen.getByRole("tab", { name: /Emission Forecast/ });
-    expect(emissionTab).toBeDisabled();
+    expect(emissionTab).toBeEnabled();
+    // Alpha Trends tab is still disabled
     const alphaTab = screen.getByRole("tab", { name: /Alpha Trends/ });
     expect(alphaTab).toBeDisabled();
   });
@@ -150,6 +166,63 @@ describe("PredictionsPage", () => {
       removeAddress: vi.fn(),
       updateLabel: vi.fn(),
     } as ReturnType<typeof useAddresses>);
+  });
+
+  it("clicking emission forecast tab renders emission content", async () => {
+    const { useAddresses } = await import("@/hooks/useAddresses");
+    vi.mocked(useAddresses).mockReturnValue({
+      addresses: [{ address: "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty", label: "Main" }],
+      hydrated: true,
+      setAddresses: vi.fn(),
+      addAddress: vi.fn(),
+      removeAddress: vi.fn(),
+      updateLabel: vi.fn(),
+    } as ReturnType<typeof useAddresses>);
+
+    // Override useEmissionForecast to return data so the component renders
+    const { useEmissionForecast } = await import("@/hooks/usePredictions");
+    vi.mocked(useEmissionForecast).mockReturnValue({
+      data: {
+        data: {
+          subnet_forecasts: [],
+          halving_impact: {} as never,
+          staking_migration: [],
+          caveat: "Test caveat",
+          subnets_analyzed: 0,
+          subnets_skipped: 0,
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as ReturnType<typeof useEmissionForecast>);
+
+    const user = userEvent.setup();
+    render(
+      <SessionProvider>
+        <PredictionsPage />
+      </SessionProvider>,
+    );
+    const emissionTab = screen.getByRole("tab", { name: /Emission Forecast/ });
+    await user.click(emissionTab);
+    expect(emissionTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("emission-forecaster")).toBeInTheDocument();
+
+    // Restore default mocks
+    vi.mocked(useAddresses).mockReturnValue({
+      addresses: [],
+      hydrated: true,
+      setAddresses: vi.fn(),
+      addAddress: vi.fn(),
+      removeAddress: vi.fn(),
+      updateLabel: vi.fn(),
+    } as ReturnType<typeof useAddresses>);
+    vi.mocked(useEmissionForecast).mockReturnValue({
+      data: null,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as ReturnType<typeof useEmissionForecast>);
   });
 
   it("yield projector tab is selected by default", () => {
