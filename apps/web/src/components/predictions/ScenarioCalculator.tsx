@@ -69,7 +69,7 @@ function makeScenario(source: number, dest: number): IdentifiedScenarioInput {
 export function buildComparisonChartData(
   comparison: ScenarioComparisonResult,
 ): { name: string; yield: number; color: string }[] {
-  const items = [
+  const items: { name: string; yield: number; color: string }[] = [
     {
       name: "Current",
       yield: comparison.baseline.total_projected_yield_tao,
