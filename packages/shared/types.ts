@@ -239,6 +239,56 @@ export interface ErrorResponse {
   };
 }
 
+/** Time horizon for yield projections */
+export type PredictionHorizon = 30 | 60 | 90;
+
+/** A single point in the yield projection time-series chart */
+export interface YieldChartPoint {
+  day: number;
+  projected_yield_tao: number;
+  confidence_68_lower: number;
+  confidence_68_upper: number;
+  confidence_95_lower: number;
+  confidence_95_upper: number;
+}
+
+/** Yield projection for a single subnet at a given horizon */
+export interface SubnetYieldProjection {
+  netuid: number;
+  subnet_name: string | null;
+  current_stake_tao: number;
+  projected_yield_tao: number;
+  emission_trend_slope: number;
+  r_squared: number;
+  confidence_68_lower: number;
+  confidence_68_upper: number;
+  confidence_95_lower: number;
+  confidence_95_upper: number;
+  has_volatility_warning: boolean;
+}
+
+/** Aggregated yield projection for a specific time horizon */
+export interface HorizonProjection {
+  horizon_days: number;
+  total_projected_yield_tao: number;
+  total_confidence_68_lower: number;
+  total_confidence_68_upper: number;
+  total_confidence_95_lower: number;
+  total_confidence_95_upper: number;
+  subnet_projections: SubnetYieldProjection[];
+}
+
+/** Complete yield projection response (matches Python YieldProjectionResponseSchema) */
+export interface YieldProjectionResult {
+  projections: HorizonProjection[];
+  chart_data: YieldChartPoint[];
+  caveat: string;
+  last_computed: string;
+  total_staked_tao: number;
+  subnets_analyzed: number;
+  subnets_skipped: number;
+}
+
 /** Saved screener configuration (matches Python SavedScreenerResponseSchema) */
 export interface SavedScreener {
   id: number;

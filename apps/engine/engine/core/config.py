@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     cache_ttl_price: int = 180
     cache_ttl_portfolio: int = 300
     cache_ttl_screener: int = 120
+    cache_ttl_prediction: int = 3600  # 1 hour
 
     # Taostats
     taostats_api_url: str = "https://api.taostats.io"
