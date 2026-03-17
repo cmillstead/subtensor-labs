@@ -19,6 +19,11 @@ export type {
   EngineResponse,
   ErrorResponse,
   SavedScreener,
+  PredictionHorizon,
+  YieldChartPoint,
+  SubnetYieldProjection,
+  HorizonProjection,
+  YieldProjectionResult,
 } from "@subtensor-labs/shared";
 
 /** Navigation route definition for the app shell */
